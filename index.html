@@ -175,10 +175,8 @@ section{
 .hero-content{
     position:relative;
     z-index:5;
-
     max-width:760px;
     padding-top:30px;
-}
     padding-bottom:80px;
 }
 
@@ -1007,6 +1005,38 @@ section{
     object-fit:contain;
 }
 
+
+/* ===== Enhanced Mobile Responsive ===== */
+
+@media (max-width:1100px){
+    .nav-links{display:none;}
+    .container{padding:0 40px;}
+    .problem-grid{grid-template-columns:1fr;gap:60px;}
+    .speed-grid,.feature-grid{grid-template-columns:1fr;}
+}
+
+@media (max-width:768px){
+    .container{padding:0 20px;}
+    .hero{min-height:100svh;height:auto;}
+    .hero-content{max-width:100%;padding-bottom:90px;}
+    .hero h1{font-size:2.2rem;line-height:1.05;}
+    .desc{max-width:100%;font-size:0.9rem;}
+    .logo img{width:120px;height:auto;}
+    .contact-btn{padding:12px 18px;font-size:.65rem;}
+    .problem,.built,.speed,.modularity,.network,.ai-section,.footer{padding:80px 0;}
+    .problem-text h2,.built-inner h2,.speed-inner h2,.modularity-header h2,.network-header h2,.ai-header h2,.footer h2{
+        font-size:2rem;line-height:1.2;
+    }
+    .scroll-down{display:none;}
+}
+
+@media (max-width:480px){
+    .container{padding:0 16px;}
+    .hero h1{font-size:1.85rem;}
+    .problem-text h2{font-size:1.7rem;}
+    .logo img{width:100px;}
+}
+
 </style>
 <base target="_blank">
 </head>
@@ -1019,7 +1049,10 @@ section{
 
 <section class="hero">
 
+    <picture>
+    <source media="(max-width:768px)" srcset="mobile_bg.png">
     <img src="bg.png" alt="Hero" class="hero-bg">
+</picture>
 
     <!-- NAVBAR -->
 
