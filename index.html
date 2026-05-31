@@ -313,7 +313,7 @@ section{
 }
 
 /* =========================================
-   PROBLEM STATEMENT (replaces GCS)
+   PROBLEM STATEMENT
 ========================================= */
 
 .problem{
@@ -383,9 +383,6 @@ section{
 
 .problem-image{
     overflow:hidden;
-
-
-
 }
 
 .problem-image img{
@@ -514,6 +511,7 @@ section{
     font-size:clamp(2rem,3.5vw,3.5rem);
     line-height:1.2;
     letter-spacing:-1.5px;
+    text-wrap:balance;
 }
 
 /* =========================================
@@ -574,6 +572,8 @@ section{
     margin-bottom:60px;
 
     max-width:900px;
+
+    text-wrap:balance;
 }
 
 .speed-grid{
@@ -673,64 +673,8 @@ section{
     letter-spacing:-1.5px;
 
     text-align:center;
-}
 
-/* =========================================
-   NETWORK
-========================================= */
-
-.network{
-    position:relative;
-
-    padding:140px 0;
-
-    overflow:hidden;
-
-    background:
-    radial-gradient(
-        circle at 50% 50%,
-        rgba(217,176,107,0.06),
-        transparent 60%
-    ),
-    #050505;
-}
-
-.network::before{
-    content:"";
-
-    position:absolute;
-    inset:0;
-
-    z-index:1;
-
-    background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-
-    background-size:100px 100px;
-
-    opacity:0.3;
-
-    pointer-events:none;
-}
-
-.network-header{
-    position:relative;
-    z-index:2;
-
-    max-width:900px;
-
-    margin:0 auto;
-}
-
-.network-header h2{
-    font-size:clamp(2rem,3.5vw,3.5rem);
-
-    line-height:1.2;
-
-    letter-spacing:-1.5px;
-
-    text-align:center;
+    text-wrap:balance;
 }
 
 /* =========================================
@@ -801,6 +745,8 @@ section{
     letter-spacing:-1.5px;
 
     text-transform:uppercase;
+
+    text-wrap:balance;
 }
 
 .ai-header h2 .gold{
@@ -914,6 +860,8 @@ section{
     font-size:clamp(2rem,4vw,3.5rem);
 
     letter-spacing:-2px;
+
+    text-wrap:balance;
 }
 
 .footer a{
@@ -931,6 +879,8 @@ section{
     transition:0.3s;
 
     border-radius:4px;
+
+    white-space:nowrap;
 }
 
 .footer a:hover{
@@ -938,7 +888,17 @@ section{
 }
 
 /* =========================================
-   RESPONSIVE
+   LOGO
+========================================= */
+
+.logo img{
+    width:150px;
+    height:90px;
+    object-fit:contain;
+}
+
+/* =========================================
+   RESPONSIVE — 1100px
 ========================================= */
 
 @media(max-width:1100px){
@@ -953,6 +913,7 @@ section{
 
     .problem-grid{
         grid-template-columns:1fr;
+        gap:60px;
     }
 
     .speed-grid{
@@ -966,31 +927,99 @@ section{
     }
 }
 
+/* =========================================
+   RESPONSIVE — 768px
+========================================= */
+
 @media(max-width:768px){
 
     .container{
-        padding:0 24px;
+        padding:0 20px;
+    }
+
+    .hero{
+        min-height:100svh;
+        height:auto;
     }
 
     .hero-content{
-        padding-bottom:70px;
+        max-width:100%;
+        padding-bottom:90px;
     }
 
     .hero h1{
-        font-size:2.6rem;
+        font-size:2.2rem;
+        line-height:1.05;
     }
 
     .desc{
-        font-size:0.88rem;
+        max-width:100%;
+        font-size:0.9rem;
+    }
+
+    .logo img{
+        width:120px;
+        height:auto;
+    }
+
+    .contact-btn{
+        padding:12px 18px;
+        font-size:.65rem;
     }
 
     .problem,
     .built,
     .speed,
     .modularity,
-    .network,
-    .ai-section{
-        padding:90px 0;
+    .ai-section,
+    .footer{
+        padding:80px 0;
+    }
+
+    /* ── KEY FIX: balanced text across all centred headings ── */
+
+    .built-inner h2{
+        font-size:1.75rem;
+        line-height:1.25;
+        letter-spacing:-0.5px;
+        text-wrap:balance;
+        word-break:keep-all;
+    }
+
+    .modularity-header h2{
+        font-size:1.75rem;
+        line-height:1.25;
+        letter-spacing:-0.5px;
+        text-wrap:balance;
+        word-break:keep-all;
+    }
+
+    .speed-inner h2{
+        font-size:1.75rem;
+        line-height:1.25;
+        letter-spacing:-0.5px;
+        text-wrap:balance;
+        margin-bottom:40px;
+    }
+
+    .ai-header h2{
+        font-size:1.75rem;
+        line-height:1.25;
+        letter-spacing:-0.5px;
+        text-wrap:balance;
+    }
+
+    .problem-text h2{
+        font-size:1.75rem;
+        line-height:1.2;
+        letter-spacing:-0.5px;
+        text-wrap:balance;
+    }
+
+    .footer h2{
+        font-size:1.75rem;
+        line-height:1.25;
+        letter-spacing:-0.5px;
     }
 
     .footer-inner{
@@ -998,43 +1027,44 @@ section{
         align-items:flex-start;
     }
 
-}
-.logo img{
-    width:150px;
-    height:90px;
-    object-fit:contain;
-}
-
-
-/* ===== Enhanced Mobile Responsive ===== */
-
-@media (max-width:1100px){
-    .nav-links{display:none;}
-    .container{padding:0 40px;}
-    .problem-grid{grid-template-columns:1fr;gap:60px;}
-    .speed-grid,.feature-grid{grid-template-columns:1fr;}
-}
-
-@media (max-width:768px){
-    .container{padding:0 20px;}
-    .hero{min-height:100svh;height:auto;}
-    .hero-content{max-width:100%;padding-bottom:90px;}
-    .hero h1{font-size:2.2rem;line-height:1.05;}
-    .desc{max-width:100%;font-size:0.9rem;}
-    .logo img{width:120px;height:auto;}
-    .contact-btn{padding:12px 18px;font-size:.65rem;}
-    .problem,.built,.speed,.modularity,.network,.ai-section,.footer{padding:80px 0;}
-    .problem-text h2,.built-inner h2,.speed-inner h2,.modularity-header h2,.network-header h2,.ai-header h2,.footer h2{
-        font-size:2rem;line-height:1.2;
+    .scroll-down{
+        display:none;
     }
-    .scroll-down{display:none;}
 }
 
-@media (max-width:480px){
-    .container{padding:0 16px;}
-    .hero h1{font-size:1.85rem;}
-    .problem-text h2{font-size:1.7rem;}
-    .logo img{width:100px;}
+/* =========================================
+   RESPONSIVE — 480px
+========================================= */
+
+@media(max-width:480px){
+
+    .container{
+        padding:0 16px;
+    }
+
+    .hero h1{
+        font-size:1.85rem;
+    }
+
+    .logo img{
+        width:100px;
+    }
+
+    .built-inner h2,
+    .modularity-header h2,
+    .speed-inner h2,
+    .ai-header h2,
+    .problem-text h2,
+    .footer h2{
+        font-size:1.5rem;
+        line-height:1.25;
+        letter-spacing:-0.3px;
+    }
+
+    .built-inner h3{
+        font-size:0.85rem;
+        letter-spacing:2.5px;
+    }
 }
 
 </style>
@@ -1044,42 +1074,34 @@ section{
 <body>
 
 <!-- =========================================
-     HERO (UNCHANGED)
+     HERO
 ========================================= -->
 
 <section class="hero">
 
     <picture>
-    <source media="(max-width:768px)" srcset="mobile_bg.png">
-    <img src="bg.png" alt="Hero" class="hero-bg">
-</picture>
+        <source media="(max-width:768px)" srcset="mobile_bg.png">
+        <img src="bg.png" alt="Hero" class="hero-bg">
+    </picture>
 
     <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="container nav-inner">
 
-  <nav class="navbar">
+            <div class="logo">
+                <img src="logo.png" alt="Vikasana Logo" class="logo-img">
+            </div>
 
-    <div class="container nav-inner">
+            <a href="mailto:info@vikasanasystems.tech" class="contact-btn">
+                CONTACT
+            </a>
 
-        <div class="logo">
-            <img src="logo.png" alt="Vikasana Logo" class="logo-img">
-            
         </div>
-
-        <a href="mailto:info@vikasanasystems.tech" class="contact-btn">
-            CONTACT
-        </a>
-
-    </div>
-
-</nav>
+    </nav>
 
     <!-- CONTENT -->
-
     <div class="container">
-
         <div class="hero-content">
-
-   
 
             <h1>
                 ONE CONTROL<br>
@@ -1094,17 +1116,12 @@ section{
             </p>
 
         </div>
-
     </div>
 
     <!-- SCROLL -->
-
     <div class="scroll-down">
-
         <div class="mouse"></div>
-
         <span>SCROLL</span>
-
     </div>
 
 </section>
@@ -1125,9 +1142,7 @@ section{
 
             <div class="problem-text">
 
-                <div class="section-tag">
-                    VIKASANA COMMAND
-                </div>
+                <div class="section-tag">VIKASANA COMMAND</div>
 
                 <h2>
                     Fragmented systems are making the battlefield unpredictable
@@ -1155,15 +1170,18 @@ section{
 
         <div class="built-inner">
 
-            <div class="section-tag">
-                FULL STACK CONTROL
-            </div>
+            <div class="section-tag">FULL STACK CONTROL</div>
 
             <h3>Built from the ground up</h3>
 
+            <!--
+                FIXED: Removed <br> tags so the browser reflows naturally
+                at every viewport width. text-wrap:balance handles even
+                distribution across lines.
+            -->
             <h2>
-                No outsourcing. No vendor lock-in.<br>
-                From <span class="gold">protocol stacks</span> to <span class="gold">AI algorithms</span>,<br>
+                No outsourcing. No vendor lock-in.
+                From <span class="gold">protocol stacks</span> to <span class="gold">AI algorithms</span>,
                 we control the entire stack.
             </h2>
 
@@ -1184,8 +1202,8 @@ section{
         <div class="speed-inner">
 
             <h2>
-                Threat detected.<br>
-                <span class="gold">Signature verified.</span><br>
+                Threat detected.
+                <span class="gold">Signature verified.</span>
                 Response deployed. <span class="gold">In Seconds.</span>
             </h2>
 
@@ -1224,9 +1242,12 @@ section{
 
         <div class="modularity-header">
 
+            <!--
+                FIXED: Removed <br> between sentences so "Any unmanned
+                system." no longer splits awkwardly on mobile.
+            -->
             <h2>
-                One system. <span class="gold">Any unmanned system.</span><br>
-                Mission-ready.
+                One system. <span class="gold">Any unmanned system.</span> Mission-ready.
             </h2>
 
         </div>
@@ -1235,9 +1256,6 @@ section{
 
 </section>
 
-<!-- =========================================
-     NETWORK
-========================================= -->
 <!-- =========================================
      AI SECTION
 ========================================= -->
@@ -1249,8 +1267,8 @@ section{
         <div class="ai-header">
 
             <h2>
-                Self-learning architecture.<br>
-                <span class="gold">Regular updates.</span><br>
+                Self-learning architecture.
+                <span class="gold">Regular updates.</span>
                 Always ahead of the threat.
             </h2>
 
@@ -1296,9 +1314,10 @@ section{
                 Ready to deploy autonomous systems?
             </h2>
 
-           <a href="mailto:info@vikasanasystems.tech">
-    CONTACT TEAM
-</a>
+            <a href="mailto:info@vikasanasystems.tech">
+                CONTACT TEAM
+            </a>
+
         </div>
 
     </div>
