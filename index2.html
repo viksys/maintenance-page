@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Vikasana Systems</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html{
+    scroll-behavior:smooth;
+}
+
+body{
+    font-family:'Inter',sans-serif;
+    background:#050505;
+    color:#fff;
+    overflow-x:hidden;
+}
+
+/* =========================================
+   GLOBAL
+========================================= */
+
+.container{
+    width:100%;
+    max-width:1450px;
+    margin:auto;
+    padding:0 70px;
+}
+
+section{
+    position:relative;
+}
+
+/* =========================================
+   HERO
+========================================= */
+
+.hero{
+    position:relative;
+    width:100%;
+    height:100vh;
+    overflow:hidden;
+
+    display:flex;
+    align-items:flex-end;
+}
+
+.hero-bg{
+    position:absolute;
+    inset:0;
+
+    width:100%;
+    height:100%;
+
+    object-fit:cover;
+    object-position:center;
+
+    z-index:1;
+}
+
+.hero::before{
+    content:"";
+    position:absolute;
+    inset:0;
+
+    z-index:2;
+
+    background:
+    linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.10) 0%,
+        rgba(0,0,0,0.20) 30%,
+        rgba(0,0,0,0.55) 55%,
+        rgba(0,0,0,0.85) 75%,
+        rgba(0,0,0,0.96) 100%
+    );
+}
+
+/* =========================================
+   NAVBAR
+========================================= */
+
+.navbar{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+
+    z-index:10;
+
+    padding:26px 0;
+}
+
+.nav-inner{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.logo{
+    display:flex;
+    align-items:center;
+    gap:14px;
+
+    font-size:1.35rem;
+    font-weight:800;
+    letter-spacing:3px;
+}
+
+.logo-mark{
+    width:18px;
+    height:18px;
+
+    border:1.5px solid #fff;
+    transform:rotate(45deg);
+}
+
+.nav-links{
+    display:flex;
+    gap:48px;
+    list-style:none;
+}
+
+.nav-links a{
+    text-decoration:none;
+    color:rgba(255,255,255,0.9);
+
+    font-size:0.78rem;
+    letter-spacing:1.8px;
+    font-weight:500;
+
+    transition:0.3s;
+}
+
+.nav-links a:hover{
+    color:#d9b06b;
+}
+
+.contact-btn{
+    text-decoration:none;
+    color:#fff;
+
+    border:1px solid rgba(255,255,255,0.35);
+
+    padding:14px 24px;
+
+    font-size:0.72rem;
+    letter-spacing:1.5px;
+
+    transition:0.3s;
+}
+
+.contact-btn:hover{
+    background:#d9b06b;
+    border-color:#d9b06b;
+    color:#000;
+}
+
+/* =========================================
+   HERO CONTENT
+========================================= */
+
+.hero-content{
+    position:relative;
+    z-index:5;
+
+    max-width:760px;
+    padding-top:30px;
+}
+    padding-bottom:80px;
+}
+
+.tag{
+    display:flex;
+    align-items:center;
+    gap:14px;
+
+    color:#d9b06b;
+
+    font-size:0.75rem;
+    letter-spacing:2.5px;
+
+    margin-bottom:24px;
+}
+
+.tag::before{
+    content:"";
+    width:42px;
+    height:1px;
+    background:#d9b06b;
+}
+
+.hero h1{
+    font-size:clamp(2.8rem,5.5vw,4.8rem);
+    line-height:1;
+
+    font-weight:900;
+    letter-spacing:-2px;
+
+    margin-bottom:22px;
+}
+
+.gold{
+    color:#d9b06b;
+}
+
+.desc{
+    max-width:560px;
+
+    color:rgba(255,255,255,0.82);
+
+    font-size:0.95rem;
+    line-height:1.8;
+}
+
+/* =========================================
+   SCROLL
+========================================= */
+
+.scroll-down{
+    position:absolute;
+
+    bottom:22px;
+    left:50%;
+
+    transform:translateX(-50%);
+
+    z-index:10;
+
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+
+    color:rgba(255,255,255,0.72);
+
+    font-size:0.65rem;
+    letter-spacing:3px;
+}
+
+.mouse{
+    width:20px;
+    height:34px;
+
+    border:1px solid rgba(255,255,255,0.45);
+    border-radius:30px;
+
+    position:relative;
+}
+
+.mouse::before{
+    content:"";
+
+    position:absolute;
+    top:6px;
+    left:50%;
+
+    transform:translateX(-50%);
+
+    width:3px;
+    height:6px;
+
+    border-radius:10px;
+
+    background:#fff;
+
+    animation:scroll 1.8s infinite;
+}
+
+@keyframes scroll{
+
+    0%{
+        opacity:0;
+        transform:translate(-50%,0);
+    }
+
+    40%{
+        opacity:1;
+    }
+
+    100%{
+        opacity:0;
+        transform:translate(-50%,10px);
+    }
+}
+
+/* =========================================
+   ANIMATED TOPOLOGY BACKGROUND
+========================================= */
+
+.topology-bg{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    pointer-events:none;
+    overflow:hidden;
+}
+
+.topology-canvas{
+    width:100%;
+    height:100%;
+    display:block;
+}
+
+/* =========================================
+   PROBLEM STATEMENT (replaces GCS)
+========================================= */
+
+.problem{
+    position:relative;
+
+    padding:140px 0;
+
+    overflow:hidden;
+
+    background:
+    radial-gradient(
+        circle at top,
+        rgba(217,176,107,0.08),
+        transparent 40%
+    ),
+    linear-gradient(
+        to bottom,
+        #050505,
+        #080808
+    );
+}
+
+.problem::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    z-index:1;
+
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="0.5"/></filter></defs><rect width="100" height="100" fill="none" opacity="0.02"/></svg>');
+
+    opacity:0.12;
+
+    pointer-events:none;
+}
+
+.problem::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:1;
+    background:
+        radial-gradient(
+            circle at 20% 50%,
+            rgba(217,176,107,0.05) 0%,
+            transparent 50%
+        ),
+        radial-gradient(
+            circle at 80% 80%,
+            rgba(217,176,107,0.04) 0%,
+            transparent 50%
+        );
+    pointer-events:none;
+}
+
+.problem-grid{
+    position:relative;
+    z-index:2;
+
+    display:grid;
+    grid-template-columns:1.1fr 1fr;
+
+    gap:90px;
+    align-items:center;
+}
+
+.problem-image{
+    overflow:hidden;
+
+
+
+}
+
+.problem-image img{
+    width:100%;
+    display:block;
+}
+
+.problem-text .section-tag{
+    color:#d9b06b;
+
+    font-size:0.72rem;
+    letter-spacing:2px;
+
+    margin-bottom:24px;
+}
+
+.problem-text h2{
+    font-size:clamp(2.5rem,4vw,4rem);
+
+    line-height:1;
+
+    letter-spacing:-2px;
+
+    margin-bottom:28px;
+}
+
+.problem-text p{
+    color:rgba(255,255,255,0.72);
+
+    font-size:1rem;
+    line-height:1.9;
+
+    margin-bottom:32px;
+
+    max-width:520px;
+}
+
+/* =========================================
+   BUILT FROM GROUND UP
+========================================= */
+
+.built{
+    position:relative;
+
+    padding:120px 0;
+
+    overflow:hidden;
+
+    background:
+    radial-gradient(
+        circle at center,
+        rgba(217,176,107,0.05),
+        transparent 40%
+    ),
+    #050505;
+}
+
+.built::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    z-index:1;
+
+    background:
+        repeating-linear-gradient(
+            0deg,
+            rgba(217,176,107,0.02) 0px,
+            rgba(217,176,107,0.02) 1px,
+            transparent 1px,
+            transparent 80px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            rgba(217,176,107,0.02) 0px,
+            rgba(217,176,107,0.02) 1px,
+            transparent 1px,
+            transparent 80px
+        );
+
+    opacity:0.4;
+
+    pointer-events:none;
+}
+
+.built::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:1;
+    background:
+        radial-gradient(
+            ellipse 800px 600px at 50% 0%,
+            rgba(217,176,107,0.04) 0%,
+            transparent 70%
+        );
+    pointer-events:none;
+}
+
+.built-inner{
+    position:relative;
+    z-index:2;
+    text-align:center;
+    max-width:900px;
+    margin:0 auto;
+}
+
+.built-inner .section-tag{
+    color:#d9b06b;
+    font-size:0.72rem;
+    letter-spacing:2px;
+    margin-bottom:18px;
+}
+
+.built-inner h3{
+    font-size:clamp(1rem,1.5vw,1.3rem);
+    font-weight:700;
+    letter-spacing:4px;
+    margin-bottom:24px;
+    color:rgba(255,255,255,0.75);
+    text-transform:uppercase;
+}
+
+.built-inner h2{
+    font-size:clamp(2rem,3.5vw,3.5rem);
+    line-height:1.2;
+    letter-spacing:-1.5px;
+}
+
+/* =========================================
+   SPEED PROMISE
+========================================= */
+
+.speed{
+    position:relative;
+
+    padding:120px 0;
+
+    overflow:hidden;
+
+    background:
+    radial-gradient(
+        circle at 50% 100%,
+        rgba(217,176,107,0.06),
+        transparent 50%
+    ),
+    linear-gradient(
+        180deg,
+        #050505,
+        #0a0a0a
+    );
+}
+
+.speed::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    z-index:1;
+
+    background-image:
+        linear-gradient(rgba(255,255,255,0.01) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px);
+
+    background-size:120px 120px;
+
+    opacity:0.25;
+
+    pointer-events:none;
+}
+
+.speed-inner{
+    position:relative;
+    z-index:2;
+}
+
+.speed-inner h2{
+    font-size:clamp(2rem,3.5vw,3.5rem);
+
+    line-height:1.2;
+
+    letter-spacing:-1.5px;
+
+    margin-bottom:60px;
+
+    max-width:900px;
+}
+
+.speed-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:50px;
+}
+
+.speed-item{
+    padding:40px;
+
+    border:1px solid rgba(217,176,107,0.15);
+
+    border-radius:12px;
+
+    background:rgba(255,255,255,0.02);
+
+    backdrop-filter:blur(10px);
+
+    transition:0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.speed-item:hover{
+    background:rgba(217,176,107,0.08);
+    border-color:rgba(217,176,107,0.35);
+    transform:translateY(-8px);
+}
+
+.speed-item h4{
+    font-size:1.15rem;
+
+    font-weight:700;
+
+    letter-spacing:-0.5px;
+
+    margin-bottom:16px;
+
+    text-transform:uppercase;
+}
+
+.speed-item p{
+    color:rgba(255,255,255,0.65);
+
+    font-size:0.95rem;
+
+    line-height:1.8;
+}
+
+/* =========================================
+   MODULARITY
+========================================= */
+
+.modularity{
+    position:relative;
+
+    padding:140px 0;
+
+    overflow:hidden;
+
+    background:
+    linear-gradient(
+        135deg,
+        #050505,
+        #0a0a0a
+    );
+}
+
+.modularity::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    z-index:1;
+
+    background:
+        radial-gradient(circle at 0% 0%, rgba(217,176,107,0.08) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(217,176,107,0.06) 0%, transparent 50%);
+
+    pointer-events:none;
+}
+
+.modularity-header{
+    position:relative;
+    z-index:2;
+
+    max-width:900px;
+
+    margin:0 auto;
+}
+
+.modularity-header h2{
+    font-size:clamp(2rem,3.5vw,3.5rem);
+
+    line-height:1.2;
+
+    letter-spacing:-1.5px;
+
+    text-align:center;
+}
+
+/* =========================================
+   NETWORK
+========================================= */
+
+.network{
+    position:relative;
+
+    padding:140px 0;
+
+    overflow:hidden;
+
+    background:
+    radial-gradient(
+        circle at 50% 50%,
+        rgba(217,176,107,0.06),
+        transparent 60%
+    ),
+    #050505;
+}
+
+.network::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    z-index:1;
+
+    background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+
+    background-size:100px 100px;
+
+    opacity:0.3;
+
+    pointer-events:none;
+}
+
+.network-header{
+    position:relative;
+    z-index:2;
+
+    max-width:900px;
+
+    margin:0 auto;
+}
+
+.network-header h2{
+    font-size:clamp(2rem,3.5vw,3.5rem);
+
+    line-height:1.2;
+
+    letter-spacing:-1.5px;
+
+    text-align:center;
+}
+
+/* =========================================
+   AI SECTION
+========================================= */
+
+.ai-section{
+    position:relative;
+
+    padding:120px 0;
+
+    overflow:hidden;
+
+    background:
+    radial-gradient(
+        ellipse 1000px 800px at 50% 0%,
+        rgba(217,176,107,0.07),
+        transparent 60%
+    ),
+    linear-gradient(
+        to bottom,
+        #050505,
+        #0a0a0a
+    );
+}
+
+.ai-section::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    z-index:1;
+
+    background:
+        repeating-linear-gradient(
+            45deg,
+            rgba(217,176,107,0.01) 0px,
+            rgba(217,176,107,0.01) 1px,
+            transparent 1px,
+            transparent 100px
+        );
+
+    opacity:0.25;
+
+    pointer-events:none;
+}
+
+.ai-header{
+    text-align:center;
+
+    max-width:900px;
+
+    margin:0 auto;
+
+    margin-bottom:80px;
+
+    position:relative;
+
+    z-index:2;
+}
+
+.ai-header h2{
+    font-size:clamp(2rem,3.5vw,3.5rem);
+
+    line-height:1.2;
+
+    letter-spacing:-1.5px;
+
+    text-transform:uppercase;
+}
+
+.ai-header h2 .gold{
+    color:#d9b06b;
+}
+
+/* =========================================
+   FEATURE GRID (shared)
+========================================= */
+
+.feature-grid{
+    position:relative;
+    z-index:2;
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:50px;
+    max-width:1200px;
+    margin:0 auto;
+}
+
+.feature-item{
+    text-align:left;
+
+    padding:40px;
+
+    border:1px solid rgba(217,176,107,0.12);
+
+    border-radius:12px;
+
+    background:rgba(255,255,255,0.015);
+
+    backdrop-filter:blur(8px);
+
+    transition:0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.feature-item:hover{
+    background:rgba(217,176,107,0.06);
+    border-color:rgba(217,176,107,0.3);
+    transform:translateY(-6px);
+}
+
+.feature-item .num{
+    font-size:0.7rem;
+    color:#d9b06b;
+    letter-spacing:2px;
+    margin-bottom:20px;
+    font-family:'JetBrains Mono',monospace;
+}
+
+.feature-item h4{
+    font-size:1.2rem;
+    font-weight:700;
+    letter-spacing:-0.5px;
+    margin-bottom:16px;
+    text-transform:uppercase;
+}
+
+.feature-item p{
+    color:rgba(255,255,255,0.6);
+    font-size:0.95rem;
+    line-height:1.7;
+}
+
+/* =========================================
+   FOOTER
+========================================= */
+
+.footer{
+    padding:100px 0;
+
+    border-top:1px solid rgba(255,255,255,0.06);
+
+    background:#0a0a0a;
+
+    position:relative;
+
+    overflow:hidden;
+}
+
+.footer::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    z-index:1;
+
+    background:
+        radial-gradient(
+            circle at 20% 50%,
+            rgba(217,176,107,0.04),
+            transparent 50%
+        );
+
+    pointer-events:none;
+}
+
+.footer-inner{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    gap:40px;
+
+    position:relative;
+    z-index:2;
+}
+
+.footer h2{
+    font-size:clamp(2rem,4vw,3.5rem);
+
+    letter-spacing:-2px;
+}
+
+.footer a{
+    text-decoration:none;
+
+    color:#000;
+    background:#d9b06b;
+
+    padding:18px 30px;
+
+    font-size:0.8rem;
+    letter-spacing:1.5px;
+    font-weight:700;
+
+    transition:0.3s;
+
+    border-radius:4px;
+}
+
+.footer a:hover{
+    background:#ecc889;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media(max-width:1100px){
+
+    .nav-links{
+        display:none;
+    }
+
+    .container{
+        padding:0 40px;
+    }
+
+    .problem-grid{
+        grid-template-columns:1fr;
+    }
+
+    .speed-grid{
+        grid-template-columns:1fr;
+        gap:40px;
+    }
+
+    .feature-grid{
+        grid-template-columns:1fr;
+        gap:40px;
+    }
+}
+
+@media(max-width:768px){
+
+    .container{
+        padding:0 24px;
+    }
+
+    .hero-content{
+        padding-bottom:70px;
+    }
+
+    .hero h1{
+        font-size:2.6rem;
+    }
+
+    .desc{
+        font-size:0.88rem;
+    }
+
+    .problem,
+    .built,
+    .speed,
+    .modularity,
+    .network,
+    .ai-section{
+        padding:90px 0;
+    }
+
+    .footer-inner{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+}
+.logo img{
+    width:150px;
+    height:90px;
+    object-fit:contain;
+}
+
+</style>
+<base target="_blank">
+</head>
+
+<body>
+
+<!-- =========================================
+     HERO (UNCHANGED)
+========================================= -->
+
+<section class="hero">
+
+    <img src="bg.png" alt="Hero" class="hero-bg">
+
+    <!-- NAVBAR -->
+
+  <nav class="navbar">
+
+    <div class="container nav-inner">
+
+        <div class="logo">
+            <img src="logo.png" alt="Vikasana Logo" class="logo-img">
+            
+        </div>
+
+        <a href="mailto:info@vikasanasystems.tech" class="contact-btn">
+            CONTACT
+        </a>
+
+    </div>
+
+</nav>
+
+    <!-- CONTENT -->
+
+    <div class="container">
+
+        <div class="hero-content">
+
+   
+
+            <h1>
+                ONE CONTROL<br>
+                SYSTEM.<br>
+                <span class="gold">INFINITE POSSIBILITIES.</span>
+            </h1>
+
+            <p class="desc">
+                Unified command architecture for autonomous vehicles,
+                tactical robotics, embedded intelligence and
+                battlefield coordination.
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- SCROLL -->
+
+    <div class="scroll-down">
+
+        <div class="mouse"></div>
+
+        <span>SCROLL</span>
+
+    </div>
+
+</section>
+
+<!-- =========================================
+     PROBLEM STATEMENT
+========================================= -->
+
+<section class="problem">
+
+    <div class="container">
+
+        <div class="problem-grid">
+
+            <div class="problem-image">
+                <img src="gcs.png" alt="Vikasana Command">
+            </div>
+
+            <div class="problem-text">
+
+                <div class="section-tag">
+                    VIKASANA COMMAND
+                </div>
+
+                <h2>
+                    Fragmented systems are making the battlefield unpredictable
+                </h2>
+
+                <p>
+                    Borders, infrastructure, and critical operations now face a new layer of vulnerability. Siloed platforms, incompatible protocols, and vendor lock-in leave forces blind when seconds matter most.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =========================================
+     BUILT FROM GROUND UP
+========================================= -->
+
+<section class="built">
+
+    <div class="container">
+
+        <div class="built-inner">
+
+            <div class="section-tag">
+                FULL STACK CONTROL
+            </div>
+
+            <h3>Built from the ground up</h3>
+
+            <h2>
+                No outsourcing. No vendor lock-in.<br>
+                From <span class="gold">protocol stacks</span> to <span class="gold">AI algorithms</span>,<br>
+                we control the entire stack.
+            </h2>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =========================================
+     SPEED PROMISE
+========================================= -->
+
+<section class="speed">
+
+    <div class="container">
+
+        <div class="speed-inner">
+
+            <h2>
+                Threat detected.<br>
+                <span class="gold">Signature verified.</span><br>
+                Response deployed. <span class="gold">In Seconds.</span>
+            </h2>
+
+            <div class="speed-grid">
+
+                <div class="speed-item">
+                    <h4>Multi-Vehicle Control</h4>
+                    <p>Simultaneous command of UAVs, UGVs, and RCWS from a single interface. 24/7 operational readiness.</p>
+                </div>
+
+                <div class="speed-item">
+                    <h4>Precision Coordination</h4>
+                    <p>Single platform, specific asset, or full fleet. Direct every unit with sub-second latency and zero ambiguity.</p>
+                </div>
+
+                <div class="speed-item">
+                    <h4>All-Weather Operational</h4>
+                    <p>-30°C to +50°C. 95% humidity. Dust, shock, and EMI hardened. The software doesn't flinch when the world does.</p>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =========================================
+     MODULARITY
+========================================= -->
+
+<section class="modularity">
+
+    <div class="container">
+
+        <div class="modularity-header">
+
+            <h2>
+                One system. <span class="gold">Any unmanned system.</span><br>
+                Mission-ready.
+            </h2>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =========================================
+     NETWORK
+========================================= -->
+<!-- =========================================
+     AI SECTION
+========================================= -->
+
+<section class="ai-section">
+
+    <div class="container">
+
+        <div class="ai-header">
+
+            <h2>
+                Self-learning architecture.<br>
+                <span class="gold">Regular updates.</span><br>
+                Always ahead of the threat.
+            </h2>
+
+        </div>
+
+        <div class="feature-grid">
+
+            <div class="feature-item">
+                <div class="num">01</div>
+                <h4>Detailed System Logs</h4>
+                <p>Full visibility into every decision, every handoff, every engagement. Audit trails that satisfy the most stringent command requirements.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="num">02</div>
+                <h4>Deploy Anywhere</h4>
+                <p>Cloud, on-premises, or edge. Performance scales from a single laptop to a distributed command center without compromise.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="num">03</div>
+                <h4>Complete Threat Intelligence</h4>
+                <p>New vehicle signatures, communication patterns, behavioral models. The system learns continuously. The gap between threat and response shrinks daily.</p>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =========================================
+     FOOTER
+========================================= -->
+
+<footer class="footer">
+
+    <div class="container">
+
+        <div class="footer-inner">
+
+            <h2>
+                Ready to deploy autonomous systems?
+            </h2>
+
+           <a href="mailto:info@vikasanasystems.tech">
+    CONTACT TEAM
+</a>
+        </div>
+
+    </div>
+
+</footer>
+
+</body>
+</html>
