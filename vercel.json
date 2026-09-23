@@ -1,0 +1,150 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd frontend && npm run build:seo",
+  "outputDirectory": "frontend/build",
+  "installCommand": "cd frontend && npm ci",
+  "framework": null,
+  "trailingSlash": false,
+  "cleanUrls": true,
+  "build": {
+    "env": {
+      "INLINE_RUNTIME_CHUNK": "false",
+      "GENERATE_SOURCEMAP": "false"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'none'; worker-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        {
+          "key": "Permissions-Policy",
+          "value": "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()"
+        },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" },
+        { "key": "X-Permitted-Cross-Domain-Policies", "value": "none" },
+        { "key": "X-DNS-Prefetch-Control", "value": "off" }
+      ]
+    },
+    {
+      "source": "/((?!static/).*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/((?!static/).*).(webp|jpg|jpeg|png|svg|ico|woff2)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/(sitemap.xml|robots.txt|site.webmanifest)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    },
+    {
+      "source": "/.well-known/security.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    },
+    {
+      "source": "/static/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/locations",
+      "destination": "/contact",
+      "permanent": true
+    },
+    {
+      "source": "/hardware/rugged-mission-pc",
+      "destination": "/hardware/gcs-x-l",
+      "permanent": true
+    },
+    {
+      "source": "/hardware/tactical-tablet",
+      "destination": "/hardware/gcs-x-h",
+      "permanent": true
+    },
+    {
+      "source": "/hardware/edge-compute-module",
+      "destination": "/hardware/ecm-x",
+      "permanent": true
+    },
+    {
+      "source": "/hardware/gcs-x",
+      "destination": "/software/drishtikon",
+      "statusCode": 301
+    },
+    {
+      "source": "/hardware/rugged-tactical-command-tablet",
+      "destination": "/hardware/gcs-x-h",
+      "statusCode": 301
+    },
+    {
+      "source": "/hardware/edge-computing-unit",
+      "destination": "/hardware/ecm-x",
+      "statusCode": 301
+    },
+    {
+      "source": "/hardware/mission-control-console",
+      "destination": "/hardware/gcs-x-l",
+      "statusCode": 301
+    },
+    {
+      "source": "/hardware/vehicle-command-station",
+      "destination": "/hardware",
+      "statusCode": 301
+    },
+    {
+      "source": "/hardware/tactical-communication-gateway",
+      "destination": "/hardware",
+      "statusCode": 301
+    },
+    {
+      "source": "/hardware/sensor-interface-unit",
+      "destination": "/hardware",
+      "statusCode": 301
+    },
+    {
+      "source": "/hardware/flight-controller-integration-module",
+      "destination": "/hardware",
+      "statusCode": 301
+    }
+  ]
+}

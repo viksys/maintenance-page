@@ -1,0 +1,84 @@
+# robots.txt — vikasanasystems.tech
+# VIKASANA Systems Private Limited, Mangaluru, Karnataka, India
+
+# Default: the whole public site is open to crawling.
+User-agent: *
+Allow: /
+
+# ---------------------------------------------------------------------------
+# AI / answer-engine crawlers.
+# Listed explicitly so that generative search engines and LLM training or
+# retrieval crawlers are unambiguously permitted. Several of these default to
+# restricted behaviour unless a site opts in, so silence is not neutral here.
+# Remove any agent below if the company later decides to withhold consent.
+# ---------------------------------------------------------------------------
+
+# OpenAI — ChatGPT browsing, search indexing, and model training
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic — Claude
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Google — Gemini / AI Overviews (separate from Googlebot)
+User-agent: Google-Extended
+Allow: /
+
+# Common Crawl — a primary corpus for many downstream models
+User-agent: CCBot
+Allow: /
+
+# Apple, Amazon, Meta, ByteDance
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+# Microsoft — Copilot / Bing generative
+User-agent: bingbot
+Allow: /
+
+User-agent: msnbot
+Allow: /
+
+# Mistral, You.com, Diffbot and other retrieval agents
+User-agent: MistralAI-User
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+Sitemap: https://vikasanasystems.tech/sitemap.xml

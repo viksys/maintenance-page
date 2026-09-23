@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#121212" />
+
+        <!-- Primary metadata. Overridden per route at runtime by src/components/Seo.js,
+             and written statically per route by scripts/generate-seo.js at build time
+             so crawlers that do not execute JavaScript still receive correct tags. -->
+        <meta
+            name="description"
+            content="VIKASANA Systems builds command and control, interoperability, and edge-intelligence software for autonomous defence systems — software-defined, hardware-enabled. Engineered in Mangaluru, Karnataka, India."
+        />
+        <link rel="canonical" href="https://vikasanasystems.tech/" />
+        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+        <meta name="author" content="VIKASANA Systems Private Limited" />
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="VIKASANA Systems" />
+        <meta property="og:locale" content="en_IN" />
+        <meta property="og:url" content="https://vikasanasystems.tech/" />
+        <meta property="og:title" content="VIKASANA Systems — Mission Systems for Autonomous Defence" />
+        <meta
+            property="og:description"
+            content="Command, control, interoperability, and edge intelligence for autonomous defence systems. Engineered in Mangaluru, India."
+        />
+        <meta property="og:image" content="https://vikasanasystems.tech/assets/img/og-card.jpg" />
+        <meta property="og:image:type" content="image/jpeg" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="VIKASANA Systems — mission systems for autonomous defence" />
+
+        <!-- Twitter -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="VIKASANA Systems — Mission Systems for Autonomous Defence" />
+        <meta
+            name="twitter:description"
+            content="Command, control, interoperability, and edge intelligence for autonomous defence systems. Engineered in Mangaluru, India."
+        />
+        <meta name="twitter:image" content="https://vikasanasystems.tech/assets/img/og-card.jpg" />
+        <meta name="twitter:image:alt" content="VIKASANA Systems — mission systems for autonomous defence" />
+
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+
+        <!-- Fonts are declared here rather than via @import in the bundled CSS.
+             An @import inside index.css serialises the request chain: the browser must
+             download and parse the app CSS before it discovers the font request. A
+             <link> in the head is discovered by the preload scanner immediately. -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+            rel="stylesheet"
+        />
+        <!-- TWO FAMILIES, AND THAT IS THE WHOLE TYPE SYSTEM. Inter sets every
+             word on the site, headings and body alike; JetBrains Mono sets
+             labels — eyebrows, nav, numerals, specs — and the hero word cycle.
+             docs/TYPOGRAPHY.md has the reasoning and the per-role specs.
+
+             This replaced six families and nineteen weight files. Chakra Petch
+             was downloading with zero consumers; Outfit existed only as a
+             fallback for Gilroy, a commercial licence that was never loaded, so
+             every Home-page heading silently set in the fallback; and Manrope
+             set the Home body while Inter set every other page's, which meant
+             the body typeface changed as a visitor moved between pages.
+
+             DO NOT ADD A FAMILY HERE without adding it to docs/TYPOGRAPHY.md
+             and pointing a token at it. A face named in index.css but absent
+             from this link fails silently to the next name in the stack, which
+             is exactly how the Gilroy problem went unnoticed. -->
+
+        <!-- LCP element on the homepage. Without this the image is only discovered
+             after the JS bundle parses and React commits the hero.
+
+             MEDIA, NOT imagesrcset. The hero is a <picture> that switches on a
+             media query at 767px; a preload that switches on w-descriptors is
+             answering a different question, and on a 393px × DPR 3 handset it
+             answered it differently: the descriptor maths asked for ~1179px and
+             preloaded the 1672px desktop plate (320 KB) while <picture> rendered
+             the 864px portrait plate (172 KB). Both were fetched, the preloaded
+             one was discarded, and the real LCP image queued behind it.
+
+             These two links mirror the <picture> in Home.js EXACTLY. The media
+             conditions must stay in step with it — that is the whole contract.
+             The descriptor also claimed 1920w for a file that is 1672px wide. -->
+        <link
+            rel="preload"
+            as="image"
+            media="(max-width: 767px)"
+            href="/assets/img/hero-field-mobile.webp"
+            type="image/webp"
+            fetchpriority="high"
+        />
+        <link
+            rel="preload"
+            as="image"
+            media="(min-width: 768px)"
+            href="/assets/img/hero-field.webp"
+            type="image/webp"
+            fetchpriority="high"
+        />
+
+        <!-- Organization + WebSite entity. Deliberately inline and static: this is the
+             one block every crawler receives regardless of JavaScript support. -->
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "Organization",
+                        "@id": "https://vikasanasystems.tech/#organization",
+                        "name": "VIKASANA Systems",
+                        "legalName": "VIKASANA Systems Private Limited",
+                        "alternateName": "VIKASANA",
+                        "url": "https://vikasanasystems.tech",
+                        "logo": {
+                            "@type": "ImageObject",
+                            "url": "https://vikasanasystems.tech/assets/img/logo.webp"
+                        },
+                        "foundingDate": "2026-01-01",
+                        "description": "VIKASANA Systems is a software-defined, hardware-enabled defence technology company building command and control, interoperability, and edge-intelligence software for autonomous defence systems.",
+                        "address": {
+                            "@type": "PostalAddress",
+                            "addressLocality": "Mangaluru",
+                            "addressRegion": "Karnataka",
+                            "addressCountry": "IN"
+                        },
+                        "contactPoint": [
+                            {
+                                "@type": "ContactPoint",
+                                "contactType": "sales",
+                                "email": "info@vikasanasystems.tech",
+                                "areaServed": "IN",
+                                "availableLanguage": ["en"]
+                            },
+                            {
+                                "@type": "ContactPoint",
+                                "contactType": "media relations",
+                                "email": "info@vikasanasystems.tech",
+                                "availableLanguage": ["en"]
+                            },
+                            {
+                                "@type": "ContactPoint",
+                                "contactType": "human resources",
+                                "email": "info@vikasanasystems.tech",
+                                "availableLanguage": ["en"]
+                            }
+                        ],
+                        "knowsAbout": [
+                            "Command and Control",
+                            "Ground Control Station",
+                            "Mission Management",
+                            "Mission Systems",
+                            "Defence Software",
+                            "Software-Defined Defence",
+                            "Tactical Edge Computing",
+                            "Sensor Fusion",
+                            "ISR",
+                            "Situational Awareness",
+                            "Mission Planning",
+                            "Interoperability",
+                            "Autonomous Systems",
+                            "Multi-Domain Operations",
+                            "Unmanned Aerial Vehicles",
+                            "Indigenous Defence Technology"
+                        ],
+                        "slogan": "Software-defined. Hardware-enabled."
+                    },
+                    {
+                        "@type": "WebSite",
+                        "@id": "https://vikasanasystems.tech/#website",
+                        "url": "https://vikasanasystems.tech",
+                        "name": "VIKASANA Systems",
+                        "inLanguage": "en",
+                        "publisher": { "@id": "https://vikasanasystems.tech/#organization" }
+                    }
+                ]
+            }
+        </script>
+        <title>VIKASANA Systems — Mission Systems for Autonomous Defence</title>
+    </head>
+    <body>
+        <noscript>
+            VIKASANA Systems requires JavaScript. Contact us directly at
+            <a href="mailto:info@vikasanasystems.tech">info@vikasanasystems.tech</a>.
+        </noscript>
+        <div id="root"></div>
+    </body>
+</html>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VIKASANA Systems">
+  <!--
+    The tab mark: one letterform, one colour. Redrawn 23 September 2026.
+
+    It was a near-white V over a 3-unit amber rule. That rule is 0.75px once a
+    browser paints this at 16x16, so it never read as a line; it is gone and the
+    V has grown 18% into the space.
+
+    Amber, not near-white: a favicon's job is to be findable in a strip of
+    twenty tabs, and 6.52:1 on ink means the distinctiveness costs no contrast.
+    The tile stays ink because a transparent ground would put amber on the
+    browser's own chrome, which is near-white in a light theme (2.52:1).
+
+    NOTE: XML forbids a double hyphen inside a comment, so the CSS custom
+    properties cannot be named here. These values are the ink, white and amber
+    tokens in src/index.css and must stay in step with them. They were out of
+    step once: this file kept the pre-rebrand palette (0D0F10 / E8ECE9 / FFA500)
+    after the site moved to 121212 / F1F0F0 / FF6A00, so the tab showed a
+    different orange from every page that linked to it.
+
+    favicon.ico, apple-touch-icon.png, icon-192.png and icon-512.png are
+    rasterised from this file. Redraw here, then regenerate them.
+  -->
+  <rect width="64" height="64" rx="12" fill="#121212"/>
+  <path d="M10.76 13.12H20.67L32 39.79L43.33 13.12H53.24L36.48 50.88H27.52Z" fill="#FF6A00"/>
+</svg>

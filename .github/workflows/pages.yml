@@ -1,0 +1,98 @@
+# Builds frontend/ and publishes it to GitHub Pages.
+#
+# This repository previously held a hand-written static site at its root, which
+# Pages served directly from the branch. It now holds the React application
+# instead, which has to be built before there is anything to serve — so the
+# Pages source must be set to "GitHub Actions" (Settings → Pages → Source).
+# Left on "Deploy from a branch", Pages looks for an index.html at the root,
+# finds none, and serves 404 to the whole domain.
+#
+# CNAME is committed at the repository root and is copied into the artefact
+# below. Pages reads it from the PUBLISHED output, not from the branch, so a
+# build that forgets it drops the custom domain on deploy.
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A second push waits rather than cancelling: a cancelled half-deploy leaves the
+# site serving a partial artefact.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # frontend/.env carries these and IS in version control here (see the
+    # !frontend/.env negation in .gitignore), so the runner does inherit them.
+    # Declared again anyway: if CI and the platform disagree about the build
+    # environment, CI is testing something that will never ship.
+    env:
+      INLINE_RUNTIME_CHUNK: "false"
+      GENERATE_SOURCEMAP: "false"
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # sitemap → build → per-route prerendered shells. The prerender is what
+      # makes a client-rendered app work on Pages: it writes a real index.html
+      # into build/<route>/ for every route, and Pages serves directories.
+      # It writes build/404.html too, so nothing here needs to fake one.
+      - name: Build
+        run: npm run build:seo
+
+      # Pages runs Jekyll over the artefact unless told not to, and Jekyll drops
+      # every path beginning with an underscore.
+      - name: Disable Jekyll
+        run: touch build/.nojekyll
+
+      # Pages reads the custom domain from the artefact. Without this the
+      # deploy clears it and the site falls back to github.io.
+      - name: Carry the custom domain
+        run: cp ../CNAME build/CNAME
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/build
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

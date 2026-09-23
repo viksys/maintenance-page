@@ -1,0 +1,3727 @@
+﻿/*
+  Type system. Four families, in the order they are reached for.
+
+    Chakra Petch    The home hero headline, and NOTHING else. Squarish,
+    500 / 700       technical letterforms â€” the register of an instrument
+                    panel rather than a poster, which is what the approved
+                    hero mockup sets the statement in. It is used at 700 for
+                    the statement and 500 for the line beneath it, widely
+                    tracked in both cases; the tracking is where most of the
+                    character comes from, not the weight.
+
+                    It REPLACED Anton, which set this headline previously.
+                    The ui-ux-pro-max typography dataset classifies Anton
+                    (pairing 57, "Gen Z Brutal") as `brutal, loud, shouty,
+                    meme, internet` and recommends it for `Gen Z marketing,
+                    streetwear, viral campaigns`. That is the wrong register
+                    for this company whatever it looks like at a glance.
+
+                    Anton also had to be horizontally compressed to 0.847 to
+                    reach the mockup's proportions, which thinned its stems
+                    by ~15%. Saira is set at its natural width here: on a
+                    face whose whole argument is ruggedness, thinning the
+                    stems undoes the reason for choosing it.
+
+                    Fallback: Space Grotesk.
+    Space Grotesk   Display. Headings, .font-display, .h-display.
+                    Fallback: Inter, then sans-serif.
+    Inter           Body and interface text. A screen-optimised neo-grotesque.
+                    Fallback: -apple-system, BlinkMacSystemFont, sans-serif.
+    JetBrains Mono  Labels, eyebrows, coordinates, numerals, technical
+                    readouts. Fallback: ui-monospace, monospace.
+
+  The mono is what makes the interface read as instrumentation rather than as
+  a generic minimal site. The three stacks, their fallback order and the
+  loaded weight sets are held identical to website_VIKASANA_SYSTEM-main; they
+  are reached through --font-display / --font-sans / --font-mono below so that
+  no component file names a typeface directly.
+
+  The faces themselves are requested by the <link> in public/index.html. They
+  are deliberately NOT reached with @import here: an @import inside the bundled
+  stylesheet serialises the request chain â€” the browser has to download and
+  parse this file before it can discover the font URL â€” where a <link> in the
+  head is found by the preload scanner on the first pass. The two were also
+  duplicating each other.
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Colour system.
+
+  Six brand colours, held as the anchor values below. Everything else in this
+  block is a derivation, not a new colour: the two intermediate surfaces
+  (--night-2, --night-3) are steps between --ink and --surface, needed because
+  a card sitting directly on the page background at 2E2E2E reads as a panel
+  rather than as a surface. They are documented as derived so nobody mistakes
+  them for brand additions.
+
+    121212  ink — page background on dark bands, and body text on light
+    F1F0F0  paper — page background on light bands, and text on dark
+    2E2E2E  surface, borders, hairlines
+    6A6F60  muted text, disabled, tertiary
+    A3ADAA  secondary text
+    FF6A00  accent — single, and used sparingly
+
+  THIS IS THE WHOLE SITE'S PALETTE, and that is a recent correction. These
+  values used to live in a `.landing` block scoped to the Home page while
+  :root carried an older set — #0D0F10 ink, #FFFFFF paper, #FFA500 accent — so
+  the brand orange was one colour on Home and a different one on every other
+  page, and a visitor changed design systems by following a link. The Home
+  values were promoted here and the override deleted.
+
+  DO NOT SCOPE A COLOUR TOKEN TO A PAGE OR A SECTION. If a value is right for
+  one page it is right for the site; if it is not, it is not a token. The same
+  rule is written into docs/TYPOGRAPHY.md for the font tokens, and it exists
+  because both have now been broken the same way.
+
+  The variable NAMES are unchanged from the previous system on purpose. Every
+  page in the codebase already references them, so the rebrand propagates
+  without touching thirty files.
+
+  Where a value below carries a measured contrast ratio in its comment, that
+  ratio is the reason the value is what it is. Do not round it off.
+*/
+:root {
+    /* Pure white page and surfaces. The brand sheet lists E8ECE9 as both
+       "primary text on dark" and "the light surface"; those are separated
+       here. E8ECE9 is retained as the text-on-dark value (--text-on-dark
+       below and the inline colours in the pages), while surfaces â€” page,
+       cards, inputs, inverse buttons â€” are true white. */
+    --white: #F1F0F0;
+    --text-on-dark: #F1F0F0;
+    --off-white: #E2E7E4;
+    --stone-50: #D8DEDB;
+    --stone-100: #C7CFCB;
+    --stone-200: #B5BEBA;
+    /* --stone-300 and --stone-400 held the same value until the contrast pass;
+       they have deliberately diverged. 300 is now the BOUNDARY grey â€” input
+       and ghost-button borders, the two places where a 1px rule is the only
+       thing identifying a control â€” and 400 stays the secondary TEXT grey.
+       RE-DERIVED FOR THE NEW PAPER: #868E8B measured 3.36:1 on the old #FFFFFF
+       ground but only 2.95:1 on #F1F0F0. #848C89 restores 3.03:1, the 3:1 floor for a component
+       boundary; the previous #A3ADAA measured 2.30:1. It is #A3ADAA scaled by
+       0.82, so the hue is unchanged. */
+    --stone-300: #848C89;
+    --stone-400: #A3ADAA;
+    /* THE LIGHT-BAND LABEL GREY, AND IT IS NOW DARK ENOUGH TO BE ONE.
+
+       #6B7060 measured 4.49:1 on --white — a miss by one hundredth — and
+       3.74:1 on --stone-50 (#D8DEDB), which is the grey the alternating bands
+       and every .img-slot are laid on. Both grounds carry SMALL text here
+       (.num-tag, .meta-kicker, .input::placeholder, and the eyebrows the
+       pages set inline), so both owe 4.5:1 and both were failing.
+
+       --stone-50 IS THE BINDING GROUND, not --white. A token that clears the
+       floor on paper and fails on the grey band is still a failing token, and
+       #D8DEDB is the darkest surface this colour is ever text on — verified
+       against every `background:` that names --stone-50/--stone-100/
+       --off-white: only --stone-50 is ever a TEXT ground (.img-slot here,
+       LIGHT_BAND.surfaceAlt in lib/bands.js, and the odd-index bands on
+       /site-map). --stone-100 appears only as a 1px rule and a border.
+
+       #5F6355 is #6B7060 scaled by 0.885, so the olive hue is unchanged, and
+       it is the LIGHTEST such scaling that clears the floor on the grey:
+       4.52:1 on --stone-50 and 5.43:1 on --white. Anything lighter fails the
+       band, anything darker starts to read as body copy rather than as a
+       label, which is the whole point of the colour.
+
+       IT IS A LIGHT-BAND TOKEN AND ONLY THAT. On --ink it is 3.03:1 and on
+       --night-2 2.82:1. The dark-band counterparts are --stone-300 (5.44:1 on
+       ink) and --text-on-dark-3; see .num-tag-dark and .meta-kicker-dark. */
+    --stone-500: #5F6355;
+    /* 4.55:1 on --white and 3.80:1 on --stone-50. It clears the floor on paper
+       by 0.05 and does NOT clear it on the grey band. It is left at the brand
+       value because it is one of the six anchors at the top of this file, but
+       .copy-body reads it at 14.5-15.5px across ~30 files, so do not place
+       .copy-body on a --stone-50 ground without overriding the colour. */
+    --stone-600: #6A6F60;
+    --stone-700: #2E2E2E;
+    --stone-800: #1A1F1E;
+    --ink: #121212;
+    /* --black (#000000) and --night (#121212) were declared here and read
+       nowhere. --night was a duplicate of --ink under a second name, which is
+       the more expensive of the two problems: two names for one value means
+       two places to change it and no way to tell which one a reader should
+       use. Both deleted 3 September 2026. The --night-2 / --night-3 /
+       --night-line / --night-line-strong family below is unaffected and live —
+       those are derived steps up from --ink, not variants of --night. */
+    --night-2: #1A1A1A;   /* derived: one step up from ink */
+    --night-3: #242424;   /* derived: two steps up from ink */
+    --night-line: #2E2E2E;
+    /* Derived: --night-line lifted x1.9, for the dark-surface boundaries that
+       carry STATE rather than decoration. RE-DERIVED FOR THE NEW INK: the Home
+       palette shipped #4A4A4A here, which is only 2.11:1 on #121212 and was
+       never checked because on Home it was a brand value rather than a derived
+       one. #616161 restores 3.02:1. For reference the old pair was #5B6A65 on #0D0F10 = 3.38:1 and on
+       #141817 = 3.15:1. --night-line itself is 1.59:1 on ink and is kept as
+       is for hairlines and dividers, which convey nothing and are exempt. */
+    --night-line-strong: #616161;
+
+    /* The accent.
+
+       TWO VALUES, AND THE SECOND IS NOT A SECOND BRAND COLOUR.
+
+       --amber is the brand accent and is unchanged: #FF6A00 everywhere it is
+       a FILL, a RULE, a BACKGROUND, or text on a dark band. On #121212 it
+       measures 8.16:1 and needs no help.
+
+       --amber-text is the same hue rendered dark enough to be READ on a light
+       band. #FF6A00 measures 2.52:1 on --white, against a 4.5:1 floor for body
+       copy and a 3:1 floor for any boundary or indicator that carries state.
+       #B24700 measures 4.87:1 on --white and holds the hue: 23.9° against the
+       brand's 24.9°, a difference no one can see and every contrast checker
+       can.
+
+       This reverses a decision recorded here twice — that the brand accent is
+       one colour and is not to be substituted — and it was reversed knowingly,
+       by direction, on 3 September 2026. The reason is that the previous
+       arrangement put the site's required-field markers, its accordion state
+       indicators and its inline links below the threshold at which a
+       government accessibility assessment passes, and this site is sold to
+       buyers who run that assessment before they read the copy.
+
+       THE RULE FOR CALL SITES:
+         light band, small text          →  var(--amber-text)
+         light band, DISPLAY type        →  var(--amber-display)   (see below)
+         dark band, text of any size     →  var(--amber)
+         any band, fill / rule / icon    →  var(--amber)
+
+       lib/bands.js already encodes this: LIGHT_BAND.accent reads --amber-text
+       and DARK_BAND.accent reads --amber, so anything driven by a band is
+       correct without thinking about it. The .on-dark marker below restores
+       full strength for the handful of call sites that name the token directly
+       while sitting on a dark surface. */
+    --amber: #FF6A00;
+    --amber-text: #B24700;
+    /* --amber-display: the light-band accent for DISPLAY-SIZED type.
+
+       THIS TOKEN HAS BEEN ADDED, REMOVED AND RESTORED, ALL ON 23 SEPTEMBER
+       2026. The record matters more than usual because each pass was a correct
+       answer to the question actually asked, and they pointed opposite ways:
+
+         1. ADDED, to fix "a reader sees two oranges on one page". --amber-text
+            is sized for the 4.5:1 floor that SMALL text owes, and #B24700 set
+            at 74px across a headline reads as a burnt brown, not as #FF6A00.
+         2. REMOVED, to fix "the orange should be the same throughout the
+            site", on the count that three token values is one more than two.
+         3. RESTORED, because (2) made (1) worse on the page rather than
+            better, and the reporter saw it immediately: the /knowledge hero
+            set "autonomous defence." in #B24700 at 74px, which reads brown
+            beside the #FF6A00 headlines on the dark-band pages.
+
+       THE COUNT WAS THE WRONG MEASURE. Three values in this file produce TWO
+       oranges on screen, because #E05500 and #FF6A00 read as the same colour
+       (22.8° against 24.9°, a hue difference no reader resolves) and #B24700
+       is only ever seen at label and link size where nobody compares it to a
+       headline. Two values in this file produce two oranges that do NOT match,
+       because #B24700 at display size is a different colour from #FF6A00 and
+       the eye lands on both within one scroll. Consistency is what the reader
+       sees, not what the token list counts.
+
+       IT IS AA-CLEAN, AND THAT IS MEASURED, NOT ASSUMED. Display type is LARGE
+       text and owes 3:1, not 4.5:1. #E05500 is 3.38:1 on --white. Every one of
+       the twelve .text-amber elements on the site was measured at the time of
+       restoring: they run 46, 54, 62, 68, 74 and 78px, so all twelve are large
+       text by the WCAG definition and all twelve clear their floor.
+
+       WHAT IT IS NOT FOR. Anything under 24px, or under 19px bold. At small
+       sizes 3.38:1 is a failure and the token is still --amber-text. .text-amber
+       is its ONLY consumer and must stay that way; if a small-text call site
+       ever needs an accent, it takes .meta-amber.
+
+       NO SINGLE ORANGE IS POSSIBLE, which is the reason any of this exists:
+       #FF6A00 is 2.52:1 on paper and fails even the 3:1 large-text floor;
+       #B24700 is 3.38:1 on ink and fails small text there. They cross below
+       4.5:1, so one value cannot serve both grounds. The brightest colour on
+       the brand hue that clears 4.5:1 on paper is #B84D00 — indistinguishable
+       from #B24700 — so there is no lighter single value to reach for either. */
+    --amber-display: #E05500;
+    --amber-2: #FF8A33;
+
+    /* Secondary and tertiary text, at ratios that hold.
+
+       --stone-400 (#A3ADAA) is 2.30:1 on --white and 8.13:1 on --ink. It is a
+       correct DARK-surface secondary and an incorrect LIGHT-surface one, and
+       it was being used for both — field hints, upload constraints, and the
+       line that explains why a form did not submit. The two roles are split
+       here so a call site cannot pick the wrong one by accident.
+
+       --text-secondary  #5D6261  5.45:1 on --white   (light bands)
+       --text-tertiary   #4A5148  7.29:1 on --white   (light bands, strongest)
+       --text-on-dark-2  #A3ADAA  8.13:1 on --ink     (dark bands)
+       --text-on-dark-3  #7C857A  4.90:1 on --ink     (dark bands, dimmest)
+
+       #4A5148 was previously used BOTH as light-band body copy, where it is
+       correct, and as the footer's faint colour on ink, where it measures
+       2.29:1. --text-on-dark-3 is the value that role should have had. */
+    --text-body: #404040;
+    /* RE-DERIVED AGAINST THE GREY BAND, NOT AGAINST PAPER. #656B69 measured
+       4.78:1 on --white and passed, but 3.99:1 on --stone-50 (#D8DEDB) and
+       failed — and --stone-50 is where .meta lands every time it captions an
+       .img-slot or sits in a LIGHT_BAND.surfaceAlt panel. #5D6261 is #656B69
+       scaled by 0.92, the lightest such scaling that clears the floor on the
+       grey: 4.55:1 on --stone-50, 5.45:1 on --white. Hue unchanged.
+
+       STILL LIGHT-BAND ONLY: 3.02:1 on --ink. A dark subtree must carry
+       .on-dark, which remaps this token to --text-on-dark-2 (8.13:1 on ink);
+       a call site that sets a dark ground inline WITHOUT that class renders
+       this value on ink and fails. */
+    --text-secondary: #5D6261;
+    --text-tertiary: #4A5148;
+    --text-on-dark-2: var(--stone-400);
+    --text-on-dark-3: #7C857A;
+
+    /* Semantic, not palette. The only colour on this site that means something
+       rather than belonging to something: a validation failure. It is named so
+       that a future dark-surface form can redefine it in one place instead of
+       thirty inline `color: '#C0392B'` literals, which is what it was.
+       4.78:1 on --white. */
+    --danger: #C0392B;
+
+    /* Navigation bar. The bar is DOCKED at the top of a page (flush, edge to
+       edge) and LIFTS into a floating panel once the page scrolls or a menu
+       opens. --vk-bar-top is the only thing that changes; --vk-header-h is
+       derived from it, so every panel that hangs beneath the bar follows
+       automatically and the two can never drift apart. */
+    --vk-bar-top: 0px;
+    --vk-bar-h: 72px;
+    --vk-header-h: calc(var(--vk-bar-top) + var(--vk-bar-h));
+    --vk-panel-gap: 20px;
+
+    /* Page gutter and the inset used inside every floating surface.
+
+       THE TRACK IS THE VIEWPORT. There is no centred max-width any more. The
+       gutter used to be max(24px, (100vw - 1360px) / 2), which pinned every
+       page to a 1360px column and handed everything past it back to the
+       margins: on a 1920 screen that is 280px of dead space on each side, and
+       on anything wider it only grows. The page runs edge to edge now and the
+       gutter is a fixed inset, so every grid, band and hairline resolves
+       against the real width of the display.
+
+       IT SCALES, BECAUSE A FLAT 24px WAS THE MOBILE VALUE WEARING A DESKTOP
+       SUIT. Edge to edge is not the same as flush to the edge: at a constant
+       24px the wordmark and the nav sat in the corners of a 1900px screen with
+       nothing holding them off the bezel, which reads as an overflow rather
+       than as a margin. 3vw gives 24px up to 800px wide (unchanged from the
+       flat value, so nothing below a tablet moves), 38px at 1280, 57px at 1920
+       and stops at 72px past 2400 — the inset grows with the display without
+       ever becoming a centred column again.
+
+       ONE NUMBER CONTROLS THE MARGIN: the 3vw below. There is no second place
+       that does it, but --vk-gutter-pad must move with it — see the note there.
+
+       Bare maths inside clamp() is deliberate and safe. What breaks cssnano's
+       calc reducer is a NESTED form once var() has been substituted; neither
+       expression here reads a custom property, so both minify. Do not rewrite
+       either as clamp(24px, calc(…), 72px) with a var in it. */
+    --vk-gutter: clamp(24px, 3vw, 72px);
+    --vk-surface-pad: 48px;
+
+    /* The gutter plus one surface inset, precombined rather than composed with
+       calc() at the point of use, for the same reason as above.
+
+       IT IS A SECOND CLAMP, AND IT TRACKS THE FIRST EXACTLY. Both bind at the
+       same two viewport widths, which is what makes this equivalent to
+       "--vk-gutter + 48px" rather than merely close to it:
+
+         lower  24px  <=> 3vw       at 800px      lower 72 = 24 + 48
+         upper  72px  <=> 3vw       at 2400px     upper 120 = 72 + 48
+
+       Between those the slope is the same 3vw and the offset is a constant 48.
+       If the 3vw or either bound changes above, re-derive all three numbers
+       here or the floating bar stops lining up with the content beneath it. */
+    --vk-gutter-pad: clamp(72px, 3vw + 48px, 120px);
+    --vk-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* TWO FAMILIES. THE ONLY PLACE EITHER IS NAMED. See docs/TYPOGRAPHY.md
+       before changing anything here.
+
+       Inter           Everything with words in it — headings AND body. The
+                       hierarchy is carried by weight, size, case and tracking,
+                       not by a second face.
+       JetBrains Mono  Labels only: eyebrows, nav, numerals, specs, and the
+                       hero word cycle.
+
+       --font-display is an ALIAS, not a second family. It is kept because
+       roughly 250 call sites read .h-display / .font-display, and because if a
+       separate display face is ever licensed this is the one line that
+       introduces it. Do not point it at a face that is not in index.html.
+
+       This replaced a four-token, six-family arrangement in which the Home
+       page and the rest of the site resolved to different typefaces. */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: var(--font-sans);
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/*
+  A NOTE ON tailwind.config.js, so the next person does not lose an hour to it.
+
+  That file maps `background`, `foreground`, `muted`, `accent`, `border`,
+  `ring` and the rest to hsl(var(--name)), and maps borderRadius to
+  var(--radius). It shipped that way with the shadcn scaffold. None of those
+  variables is declared anywhere, so every one of those utilities resolves to
+  `hsl()` with an undefined argument — an invalid declaration the browser drops
+  in silence. `text-muted-foreground` inherits, `bg-accent` stays transparent,
+  `rounded-lg` has no radius. No error, no warning.
+
+  This is harmless today because nothing uses them: zero occurrences of the
+  shadcn colour utilities and zero of rounded-lg / -md / -sm across src. They
+  were briefly declared here to support a pasted component and removed again
+  once that component was rewritten in the site's own tokens, because a
+  --radius on a site that is square by intent is a trap rather than a default.
+
+  If a component written in the shadcn vocabulary is ever brought in, declare
+  the variables it needs at that point and state which palette token each one
+  restates. Do not assume the utilities work because the config names them.
+*/
+
+/* .on-dark restores full-strength amber for a subtree sitting on a dark band.
+
+   It was a no-op marker while --amber-text and --amber held the same value.
+   It is load-bearing now: a call site that names --amber-text directly while
+   sitting on ink would otherwise render the light-band amber at 3.38:1. Put
+   this class on the dark container, not on the coloured element, so every
+   descendant inherits the correction.
+
+   Anything driven by lib/bands.js does not need it — DARK_BAND.accent already
+   resolves to --amber. */
+.on-dark {
+    --amber-text: var(--amber);
+    /* Same correction for the display accent: on ink there is no contrast
+       problem to solve, so a headline accent goes back to the brand orange at
+       6.52:1 rather than rendering the light-band substitute. */
+    --amber-display: var(--amber);
+    --text-secondary: var(--text-on-dark-2);
+    --text-tertiary: var(--text-on-dark-2);
+}
+
+/* --- The stone band ---------------------------------------------------------
+   THE OTHER GROUND CORRECTION, AND IT RUNS THE OPPOSITE WAY TO .on-dark.
+
+   --amber-display is calibrated against --white (#F1F0F0), where #E05500
+   measures 3.38:1 and clears the 3:1 that large text owes. --stone-50
+   (#D8DEDB) is a step darker, and the same colour measures 2.81:1 there —
+   a FAIL, on the only floor that applies to a headline.
+
+   It is not a hypothetical. /locations sets "Karnataka." in .text-amber at
+   46px inside a --stone-50 section, and it was the single contrast failure on
+   the site the moment --amber-display was restored.
+
+   --amber-text is the value that survives the extra step of ground: #B24700 is
+   4.06:1 on --stone-50, which clears large text with margin and is the same
+   substitution the muted greys in that section already make for the same
+   reason. A display accent on stone therefore gives up the hue match and keeps
+   the contrast, which is the right way round — a headline that cannot be read
+   is worse than one that is a shade darker than the brand.
+
+   PUT IT ON THE SECTION, not on the coloured element, exactly like .on-dark.
+   Only sections whose background is --stone-50 need it; there are five such
+   sections on the site and this is the only one that carries an accent, but
+   the class is declared rather than inlined so the next one is a class name
+   rather than a rediscovery. */
+.on-stone {
+    --amber-display: var(--amber-text);
+}
+
+/* ============================================================
+   ANCHOR OFFSET
+
+   The header is fixed. Anything scrolled to â€” a nav link, an in-page anchor,
+   a :target, a focus jump â€” lands with its first line underneath the bar
+   unless the browser is told to stop short of it.
+
+   This was previously handled by hand: five elements across four files each
+   carried an inline scrollMarginTop of 88 or 96px, and every other section on
+   the site had none. Those numbers were also guesses that no longer matched
+   the bar, which is 72px plus a 14px lift plus a 20px gap once it floats.
+
+   Declared once here and derived from the same tokens the bar itself uses, so
+   it tracks the bar automatically â€” including the docked-to-floating change,
+   because --vk-bar-top is re-declared on <html> at that moment. The extra 12px
+   is breathing room so the heading does not sit flush against the panel edge.
+   ============================================================ */
+[id] {
+    scroll-margin-top: calc(var(--vk-header-h) + var(--vk-panel-gap) + 12px);
+}
+
+/* The @supports (width: 100dvw) override that used to sit here is gone along
+   with the centred track. It existed for one reason: 100vw resolves against the
+   initial containing block, which on a page with a classic scrollbar is wider
+   than the box the content actually gets, so a gutter DERIVED by subtracting
+   from 100vw came out a few pixels wide on each side and the track landed
+   narrower than it claimed. The gutter is a constant now. It subtracts from
+   nothing, so there is no discrepancy left to correct. */
+
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+html { scroll-behavior: smooth; }
+/* Honour a reduced-motion preference for anchor jumps too. */
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+}
+html, body {
+    margin: 0; padding: 0;
+    background: var(--white);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv11';
+}
+/* clip, not hidden. Per CSS Overflow 3 a non-visible value on one axis forces
+   the other to compute to `auto`, so `overflow-x: hidden` turned #root into a
+   scroll container â€” one with height:auto, which therefore never scrolls, and
+   whose only real effect was to kill every position:sticky descendant inside
+   it (the article sidebar in BlogArticle among them). `clip` does not create a
+   scroll container, so sticky resolves against the viewport as intended.
+
+   The consequence is that overflow-y computes to clip as well. That is
+   acceptable here: #root is a plain block wrapper whose height follows its
+   content, and fixed-position descendants â€” the header and its panels â€” are
+   not clipped by it, because their containing block is the viewport.
+
+   It is a guard, not a fix. The two breakouts it used to be covering â€” the
+   100vw gutter above and the full-bleed band in Home.js â€” are both corrected
+   at source. It stays because a horizontal scrollbar is a worse failure than a
+   clipped pixel, and because clip, unlike hidden, costs nothing else. */
+#root { min-height: 100vh; overflow-x: clip; }
+
+/* Folded in from src/App.css on 3 September 2026, which held this rule alone.
+   .App is the single wrapper div inside #root, and this keeps that wrapper
+   filling the first screen so a short page still paints a full-height ground
+   rather than ending at its content. Same value as #root above; both are
+   plain 100vh rather than the 100vh/100svh pair used by the full-viewport
+   heroes, because a min-height on a wrapper that may grow past the viewport
+   does not have the address-bar problem svh exists to solve. */
+.App { min-height: 100vh; }
+
+/* FULL-VIEWPORT MINIMUM FOR A SURFACE THAT IS RENDERED FROM A STYLE OBJECT.
+
+   The two declarations are one progressive pair and the ORDER IS THE WHOLE
+   MECHANISM. A browser that does not know `svh` — Safari below 15.4, and the
+   iOS WebViews that trail it — fails to parse the second declaration and
+   discards it, keeping the 100vh it has already applied. A browser that does
+   know `svh` applies both and the later one wins. Never reorder these, and
+   never drop the 100vh line: without it the old browsers get no min-height at
+   all rather than an approximate one.
+
+   IT IS A CLASS BECAUSE A REACT STYLE OBJECT CANNOT HOLD THE PAIR. `style={{
+   minHeight: '100vh', minHeight: '100svh' }}` is one key — the first value is
+   overwritten before it ever reaches the DOM, so the fallback silently does
+   not exist. The three surfaces that need it are exactly the ones where a
+   collapsed layout is worst, because they are what a visitor sees when
+   something has already gone wrong:
+
+     src/App.js                        RouteFallback
+     src/components/ErrorBoundary.js   the crash screen
+     src/pages/NotFound.js             the 404
+
+   svh rather than dvh on purpose, matching the heroes below: svh is the
+   SMALLEST viewport state, so the surface is sized to what is visible with the
+   address bar extended and nothing hides behind it. dvh would resize the
+   element as the bar retracts, which on a static page is motion for nothing. */
+.vk-min-vh {
+    min-height: 100vh;
+    min-height: 100svh;
+}
+
+.font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
+.font-mono { font-family: var(--font-mono); }
+
+/* ---- the mono label recipe ----
+   One typographic idea â€” mono, medium, uppercase, letterspaced â€” used by four
+   classes that differ only in size, tracking and colour. It is stated once
+   here, and each class below carries nothing but its own deltas. Anything that
+   should be true of every label in the interface belongs in this rule. */
+.eyebrow,
+.meta,
+.num-tag,
+.nav-link {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+/* Same reasoning as .meta below: --stone-500 is 5.43:1 on --white but 3.03:1
+   on --ink, and an eyebrow is small text on both. --text-secondary is 5.45:1
+   on --white and is remapped by .on-dark for a dark subtree, so one token
+   covers both grounds. */
+.eyebrow { color: var(--text-secondary); }
+
+/* Big display headings */
+.h-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    /* RETUNED FROM SPACE GROTESK TO INTER. -0.045em and 0.92 were paired to
+       Space Grotesk, which has short extenders and narrow sidebearings. Inter
+       is drawn wider and taller; at those values the lines collide and the
+       counters close up. */
+    letter-spacing: -0.025em;
+    line-height: 1.0;
+    /*
+      INHERITS ITS COLOUR. It must not name one.
+
+      This class used to hardcode `color: var(--ink)`. That was safe while every
+      band was white, and it became a bug the moment lib/bands.js made band 0
+      dark: a section sets `color: b.fg`, every child inherits the right value,
+      and this one declaration overrode it back to near-black â€” so page
+      headings rendered ink-on-ink and disappeared. `.h-display-dark` existed to
+      patch that around, one call site at a time, and was missing from most.
+
+      Inheriting makes the band the single source of truth, which is the whole
+      contract lib/bands.js is built on. `html, body` sets --ink, so a heading
+      outside any band still resolves to the same value it always had.
+    */
+    color: inherit;
+}
+/* Retained for call sites that state the tone explicitly, and for headings
+   inside a dark container that does not set a colour of its own. It is now a
+   reinforcement rather than a correction. */
+.h-display-dark { color: var(--text-on-dark); }
+
+/* The headline accent, and the ONLY consumer of --amber-display. Display type
+   only — see the note beside the token for why this does not resolve
+   --amber-text, and for the one thing it must not be used on. Small accented
+   text uses .meta-amber, which resolves --amber-text. */
+.text-amber { color: var(--amber-display); }
+
+/* ---- Buttons ----
+   Five appearances of one component. Everything they share is declared once;
+   each modifier carries only what makes it different. The class names are
+   unchanged â€” .btn-primary and the rest are written directly in the pages â€” so
+   this is a consolidation of declarations, not a renaming.
+
+   min-height is 44px because these are the site's touch targets. Only the two
+   outlined variants actually grow: their 13px padding put them at roughly 42px.
+   The three filled variants already measured just over 44 and are untouched. */
+.btn-primary,
+.btn-amber,
+.btn-ghost,
+.btn-inverse,
+.btn-outline-dark {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 14px 22px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 500;
+    cursor: pointer;
+    /* Was `all`. Only these three ever change on this component, and naming
+       them keeps a future declaration from being animated by accident. */
+    transition:
+        background-color 0.28s var(--vk-ease),
+        border-color 0.28s var(--vk-ease),
+        color 0.28s var(--vk-ease);
+}
+.btn-primary .arrow,
+.btn-amber .arrow,
+.btn-ghost .arrow,
+.btn-inverse .arrow,
+.btn-outline-dark .arrow { transition: transform 0.28s var(--vk-ease); }
+
+.btn-primary:hover .arrow,
+.btn-amber:hover .arrow,
+.btn-ghost:hover .arrow,
+.btn-inverse:hover .arrow,
+.btn-outline-dark:hover .arrow { transform: translateX(4px); }
+
+/* The two outlined variants sit 1px tighter, so the outline reads at the same
+   optical size as a filled edge. */
+.btn-ghost,
+.btn-outline-dark { padding: 13px 22px; }
+
+.btn-primary {
+    background: var(--ink);
+    color: var(--text-on-dark);
+    border: 1px solid var(--ink);
+    position: relative;
+    overflow: hidden;
+}
+.btn-primary:hover { background: var(--stone-800); }
+
+/* Amber fill. The single highest-priority action on a light page â€” the hero's
+   primary CTA and nothing else, so the accent keeps its meaning. Ink on amber,
+   never white: white on FFA500 fails contrast at this size. */
+.btn-amber {
+    background: var(--amber);
+    color: var(--ink);
+    border: 1px solid var(--amber);
+}
+.btn-amber:hover { background: var(--amber-2); border-color: var(--amber-2); }
+
+.btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--stone-300);
+}
+.btn-ghost:hover { border-color: var(--ink); background: var(--ink); color: var(--text-on-dark); }
+
+.btn-inverse {
+    background: var(--white);
+    color: var(--ink);
+    border: 1px solid var(--white);
+}
+.btn-inverse:hover { background: transparent; color: var(--text-on-dark); }
+
+.btn-outline-dark {
+    background: transparent;
+    color: var(--text-on-dark);
+    /* An outlined button IS its outline â€” nothing else identifies it as a
+       control â€” so the boundary has to clear 3:1. At 0.25 the composite over
+       --ink was #4A4B4C, 2.20:1. At 0.35 it is #626364, 3.19:1. */
+    border: 1px solid rgba(255,255,255,0.35);
+}
+.btn-outline-dark:hover { border-color: var(--white); background: var(--white); color: var(--ink); }
+
+/* Nav */
+.nav-link {
+    color: var(--stone-700);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    padding: 6px 0;
+    transition: color 0.2s ease;
+}
+/* The link sets at roughly 27px. Padding it out to 44 would drag the underline
+   down with it, so the touch target is an invisible box centred on the text
+   instead: the hit area reaches 44px and nothing moves. */
+.nav-link::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+}
+.nav-link::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--ink);
+    /* Was an animation of `right` from 100% to 0, which relaid the rule out on
+       every frame. A scaled transform draws the identical wipe, on the
+       compositor. */
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.35s var(--vk-ease);
+}
+.nav-link:hover { color: var(--ink); }
+.nav-link:hover::after { transform: scaleX(1); }
+.nav-link.active { color: var(--ink); }
+.nav-link.active::after { transform: scaleX(1); }
+
+/* Section labels */
+.meta {
+    /* 12px per the label scale â€” 11px read as cramped at desktop distance. */
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    /*
+        --text-secondary, not --stone-500, and the difference is a WCAG pass.
+
+        This is the site's label class: eyebrows, section markers, dates,
+        counters, EXPLORE affordances — 53 source files use it, at 12px, which
+        is small text and owes 4.5:1.
+
+        --stone-500 was #6B7060 when that was written, which measured 4.49:1
+        on --white and 3.67:1 on --ink: a failure on BOTH grounds, and on the
+        light one by a hundredth, which is exactly the kind of miss that
+        survives every review by eye. Measured in a real browser across 23
+        routes, this single declaration accounted for the largest group of
+        contrast findings on the site. --stone-500 has since been re-derived
+        to #5F6355 (5.43:1 on --white) but is still a LIGHT-BAND token only —
+        it is 3.03:1 on --ink — so the argument for --text-secondary here is
+        unchanged.
+
+        --text-secondary is 5.45:1 on --white and 4.55:1 on --stone-50, and
+        the .on-dark marker already remaps it to --text-on-dark-2 (8.13:1 on
+        ink) for a dark subtree — so one token gets both surfaces right and no
+        second class is needed. A dark container that does NOT carry .on-dark
+        gets 3.02:1 and fails; the class is not optional.
+    */
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+.meta-amber { color: var(--amber-text); }
+
+/* A category label that takes the accent only where the accent is legible.
+   --amber measures 6.52:1 on --ink and 2.52:1 on --white. There is no
+   light-surface exception any more: the rule recorded at the top of this file
+   was reversed by direction on 3 September 2026, and it now reads "light band,
+   text or indicator → var(--amber-text)". This resolves to amber on a dark
+   band and to --stone-500 (5.43:1 on --white, 4.52:1 on --stone-50) on a light
+   one, so the label is readable on both and the accent keeps its meaning.
+
+   --amber-text (4.87:1 on --white) is the other correct answer here, and
+   .meta-amber above is it. This class stays grey because it labels a category
+   rather than carrying state, and a page of kickers set in accent competes
+   with the headlines they index — a composition choice, not a contrast one.
+
+   To put the accent back on light surfaces, change one declaration here rather
+   than auditing every call site. */
+.meta-kicker { color: var(--stone-500); }
+.meta-kicker-dark { color: var(--amber); }
+
+/* number tag
+   Both values are contrast corrections, matching SectionLabel's. --stone-400
+   measured 2.34:1 on white and --stone-500 measured 3.65:1 on ink, against a
+   4.5:1 floor for text at this size.
+
+   THE GREY BAND IS THE ONE THAT MATTERS HERE. /site-map alternates --white
+   and --stone-50 sections and puts this class on both, so the odd bands were
+   the harsher pairing and were never checked: at the old #6B7060 they
+   measured 3.74:1. --stone-500 is now 5.43:1 on --white and 4.52:1 on
+   --stone-50; --stone-300 on ink is 5.44:1. All three still read a clear step
+   quieter than the copy they index. */
+.num-tag {
+    color: var(--stone-500);
+    letter-spacing: 0.15em;
+    /* The one label that is not uppercased. The figures are already set as two
+       digits, so casing them would do nothing. */
+    text-transform: none;
+}
+.num-tag-dark { color: var(--stone-300); }
+
+/* dividers */
+.hairline { height: 1px; background: var(--stone-200); width: 100%; }
+
+/* container */
+.container-x { padding-left: var(--vk-gutter); padding-right: var(--vk-gutter); }
+
+/* ============================================================
+   FLOATING SURFACES
+   The navigation bar, the navigation dropdown and the search overlay
+   are one object in three sizes. The surface is defined once here and
+   the components only choose their dimensions, so the bar and anything
+   hanging off it can never drift apart.
+
+   Layers, and the split is load-bearing:
+     .vk-bar-shell / .vk-panel-shell   position only. Must carry NO
+                        opacity and NO transform: either would make the
+                        element a backdrop root and silently neutralise
+                        the blur on the surface below it.
+     .vk-bar / .vk-panel   the surface. Owns backdrop-filter, border,
+                        shadow, padding. Safe to animate opacity and
+                        translate here â€” an element's own opacity does
+                        not break its own backdrop-filter.
+     .vk-panel-content  the content. Owns any blur-reduction, because a
+                        filter on the surface would kill its backdrop.
+
+   Vertical rhythm, all derived from tokens:
+     --vk-bar-top      air above the floating bar
+     --vk-bar-h        bar height (border-box)
+     --vk-header-h     bottom edge of the bar = bar-top + bar-h
+     --vk-panel-gap    air between the bar and anything below it
+   ============================================================ */
+
+/* ---- the shared surface ----
+   The 1px border is treated as decoration rather than as the boundary that
+   identifies the surface: what separates the bar and the panels from the page
+   is the backdrop blur and the drop shadow, both of which survive the border
+   being invisible. It takes --night-line for that reason.
+
+   IN TOKENS, NOT LITERALS. These rules used to hardcode #303835, #0D0F10 and
+   #E8ECE9, which predated the token system — and because a literal cannot be
+   redefined, the Home page needed a parallel `.landing .vk-bar` block that
+   restated the identical design in the newer colours. That block is deleted
+   now; the cascade does the work.
+
+   The background stays an rgba() literal rather than a token because it is
+   translucent — the blur behind it is the point — and there is no way to take
+   a channel-wise alpha of a var() without color-mix(), which is newer than the
+   browsers this stack targets. 18,18,18 is --ink written out; if --ink moves,
+   move it here too. */
+.vk-bar,
+.vk-panel {
+    pointer-events: auto;
+    border: 1px solid var(--night-line);
+    border-radius: 4px;
+    background: rgba(18, 18, 18, 0.84);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    backdrop-filter: blur(22px) saturate(140%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+/* The panel's shadow is static â€” it arrives and leaves with the panel itself â€”
+   so it stays on the element. The bar's is not; see .vk-bar::after. */
+.vk-panel {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.045),
+        0 8px 24px -12px rgba(0, 0, 0, 0.7),
+        0 36px 72px -28px rgba(0, 0, 0, 0.9);
+}
+/* Without backdrop-filter, go opaque rather than washed-out. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .vk-bar,
+    .vk-panel { background: var(--ink); }
+}
+
+/* ---- the navigation bar: docked, then floating ----
+   Docked (top of a page): edge to edge, opaque, a single bottom rule. It is
+   part of the page.
+   Floating (scrolled, or any menu open): it lifts by --vk-bar-top, pulls in to
+   the container track, and becomes the same surface as the panels.
+
+   The two horizontal paddings are complements: docked, the bar carries the
+   gutter itself; floating, the track carries it and the bar carries only the
+   surface inset. They sum to the same absolute number either way, so the logo
+   and the nav links do not move horizontally â€” only the surface changes. */
+.vk-bar-shell {
+    position: fixed;
+    /* The lift used to be an animation of this `top`, which relaid the shell
+       out on every frame of a 340ms transition that fires on every scroll past
+       8px. The shell is pinned at 0 now and .vk-bar translates instead â€” it is
+       the one element in this stack that may carry a transform without
+       becoming a backdrop root for the blur it owns. --vk-header-h is
+       unaffected: it still derives from --vk-bar-top, so the panels continue to
+       hang from the same edge. */
+    top: 0;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+}
+.vk-bar-track {
+    pointer-events: none;
+    padding-left: 0;
+    padding-right: 0;
+    /* Layout, and it has to be. The bar's left and right edges travel inward by
+       one gutter while its contents stay exactly where they are; a transform
+       moves both together and cannot express that. Kept as padding for that
+       reason, paired with the complementary padding on .vk-bar below. */
+    transition: padding-left .34s var(--vk-ease), padding-right .34s var(--vk-ease);
+}
+.vk-bar {
+    box-sizing: border-box;
+    position: relative;
+    height: var(--vk-bar-h);
+    padding: 0 var(--vk-gutter-pad);
+    transform: translateY(var(--vk-bar-top));
+    /* padding and border-radius are the docked-to-floating morph and cannot be
+       expressed as a transform; see the note on .vk-bar-track. border-color and
+       background are paint-only and cheap. box-shadow is now only the 1px inset
+       highlight â€” the blurred drop shadow moved to ::after. */
+    transition:
+        transform .34s var(--vk-ease),
+        padding .34s var(--vk-ease),
+        border-radius .34s var(--vk-ease),
+        border-color .34s var(--vk-ease),
+        background .34s var(--vk-ease),
+        box-shadow .34s var(--vk-ease);
+}
+/* ---- scroll progress along the bar's bottom edge ----
+   How deep the reader is in the page, as a white line that fills left to right.
+
+   ON THE BAR'S BOTTOM EDGE, and it inherits the bar's corner radius so the two
+   ends round with it when the bar lifts into its floating pill. Without the
+   inherit the line would sit square inside a rounded box and its corners would
+   poke past the surface.
+
+   NO TRANSITION. This tracks a pointer or a wheel rather than animating between
+   states, so easing it would make the line lag behind the scroll it is
+   reporting — the one thing a position indicator must not do. The smoothness
+   comes from the scroll handler being rAF-throttled, not from CSS.
+
+   HIDDEN WHILE DOCKED, which is to say at the top of the page. Docked, the bar
+   is flush and — on the landing page — transparent, so the track was a hairline
+   ruled straight across the photograph with nothing to explain it. A progress
+   indicator showing zero progress is not information; it is a line.
+
+   It fades in with the bar's own lift, on the same duration and easing, so the
+   two read as one movement rather than as a bar that rises and a line that
+   arrives after it.
+
+   The height is 2px flat rather than clamped. It is a hairline at every size;
+   scaling it with the viewport would make it a bar on a large screen.
+
+   THE FILL IS SCALED, NOT WIDENED. Header.js writes scaleX on every frame —
+   see the note there on why a transform and not a width. transform-origin is
+   what makes it grow from the left rather than from the middle, and it is
+   declared here so the JS only has to write one number. */
+.vk-bar-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    overflow: hidden;
+    pointer-events: none;
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+    opacity: 1;
+    transition: opacity 0.34s var(--vk-ease);
+}
+html:not([data-nav-floating='true']) .vk-bar-progress { opacity: 0; }
+
+/*
+   BOTH PARTS TAKE currentColor, WHICH IS NOT THE SAME AS "WHITE".
+
+   The line is white, but hardcoding #FFFFFF would break it. The bar adapts to
+   what it is passing over: floating above a dark band it is #F1F0F0 on ink,
+   and above a light one it inverts to ink on paper. A white line survives the
+   first and disappears completely in the second — and this page alternates
+   dark and light the whole way down, so it would vanish and reappear four
+   times on one scroll.
+
+   currentColor is the bar's own text colour, so the line is white exactly when
+   the nav labels beside it are white, and dark when they are dark. One
+   declaration, correct on every band, and it follows any future theme without
+   being told.
+
+   THE TRACK IS A PSEUDO-ELEMENT rather than a background on the container.
+   opacity applies to a whole subtree, so dimming the container to 18% would
+   dim the fill inside it to 18% as well. As a separate layer the two can share
+   a colour and hold different strengths. The fill is positioned so it paints
+   over the track rather than under it.
+*/
+.vk-bar-progress::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0.18;
+}
+.vk-bar-progress__fill {
+    position: relative;
+    display: block;
+    height: 100%;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left center;
+    will-change: transform;
+}
+
+/* The drop shadow is the expensive half of the floating treatment: a 72px blur
+   re-rasterised on every frame, on an element that is already re-rasterising a
+   22px backdrop blur behind it. It is carried by a pseudo-element and
+   cross-faded with opacity instead, which the compositor can do without
+   repainting the bar at all. Absolutely positioned, so it is not a flex item of
+   the bar and does not disturb the logo/nav layout. */
+.vk-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .34s var(--vk-ease);
+    box-shadow:
+        0 8px 24px -12px rgba(0, 0, 0, 0.7),
+        0 36px 72px -28px rgba(0, 0, 0, 0.9);
+}
+
+html[data-nav-floating='true'] { --vk-bar-top: 14px; }
+html[data-nav-floating='true'] .vk-bar-track {
+    padding-left: var(--vk-gutter);
+    padding-right: var(--vk-gutter);
+}
+html[data-nav-floating='true'] .vk-bar { padding: 0 var(--vk-surface-pad); }
+html[data-nav-floating='true'] .vk-bar::after { opacity: 1; }
+
+/* Docked: strip the floating treatment back off, keeping only the bottom rule. */
+html:not([data-nav-floating='true']) .vk-bar {
+    border-radius: 0;
+    border-top-color: transparent;
+    border-left-color: transparent;
+    border-right-color: transparent;
+    background: #000000;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+}
+
+/* ---- docked over a photographic plate ----
+   A page whose first screen is a full-bleed photograph sets data-nav-plate on
+   <html> while it is mounted. The docked bar then paints nothing: no fill and
+   no bottom rule, so the photograph runs unbroken from the top of the window
+   and the masthead reads as part of the image rather than as a black strip
+   laid across it.
+
+   OPT-IN, NOT GLOBAL, and that is the whole design. Most pages open on a light
+   band, where a transparent bar would put cream labels on near-white. The flag
+   is the page asserting "there is something dark behind me" â€” which only a page
+   that controls its own first screen can honestly say.
+
+   THE PAGE OWES THE BAR CONTRAST IN RETURN. Nothing here darkens anything; the
+   bar simply stops painting. What carries the labels is the hero's own scrim,
+   whose first stop is sized for this â€” see the note above HERO_SCRIM in
+   Home.js. Set this flag on a page with a bright first screen and the
+   navigation becomes unreadable, with no warning from the bar itself.
+
+   Only while DOCKED. On scroll the bar lifts into the floating surface and
+   takes its normal blurred background, because by then it is over page content
+   rather than over the plate. */
+html[data-nav-plate='true']:not([data-nav-floating='true']) .vk-bar {
+    background: transparent;
+    border-bottom-color: transparent;
+}
+
+/* ---- the bar adapts to what it is sitting on ----
+   The header measures the section beneath it and publishes data-nav-theme.
+
+   Docked, the bar is always dark: at the top of a page it is the masthead and
+   should read as a black band whatever the hero behind it is doing. It only
+   becomes adaptive once it has lifted off and is genuinely passing over page
+   content â€” so the light theme is scoped to the floating state and there is
+   deliberately no docked-light rule.
+
+   Everything in the bar inherits `color`, so one declaration re-tints the
+   links, the mobile icons and the menu glyph together. */
+.vk-bar { color: var(--text-on-dark); }
+
+html[data-nav-theme='light'][data-nav-floating='true'] .vk-bar {
+    color: var(--ink);
+    border-color: rgba(18, 18, 18, 0.14);
+    background: rgba(241, 240, 240, 0.86);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* The light shadow is a swap rather than a transition: the theme flips between
+   one section and the next in a single step, and the surface it belongs to is
+   already cross-fading its background and border underneath it. */
+html[data-nav-theme='light'][data-nav-floating='true'] .vk-bar::after {
+    box-shadow:
+        0 8px 24px -12px rgba(0, 0, 0, 0.16),
+        0 30px 60px -28px rgba(0, 0, 0, 0.22);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html[data-nav-theme='light'][data-nav-floating='true'] .vk-bar { background: var(--white); }
+}
+
+/* The bar and its panels used to need a parallel block here, restating the
+   same design in the Home page's colours because the rules above were drawn
+   with literals that no redefinition could reach. That block carried its own
+   instruction — "IF THE BAR IS EVER REWRITTEN IN TOKENS, DELETE THIS BLOCK" —
+   and it has been. The bar reads --night-line, --ink, --text-on-dark and
+   --white now, so one set of rules serves every page. */
+
+@media (prefers-reduced-motion: reduce) {
+    /* The progress line joins these: its fade is tied to the bar's lift, so if
+       the lift is instant the fade has nothing left to accompany. The FILL is
+       untouched either way — it tracks scroll input rather than animating, and
+       suppressing it would leave the reader without the position it reports. */
+    .vk-bar-track, .vk-bar, .vk-bar::after, .vk-bar-progress { transition: none; }
+}
+
+/* ---- the floating panels ---- */
+.vk-panel-shell {
+    position: fixed;
+    top: var(--vk-header-h);
+    left: 0;
+    right: 0;
+    padding-top: var(--vk-panel-gap);   /* the detachment gap */
+    pointer-events: none;               /* page underneath stays interactive */
+}
+.vk-panel-track { pointer-events: none; }
+.vk-panel {
+    position: relative;
+    padding: 56px var(--vk-surface-pad);
+    /* Never fullscreen â€” the panel takes only what it needs and the
+       page stays visible below it. */
+    max-height: calc(100vh - var(--vk-header-h) - var(--vk-panel-gap) - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+/* 1023, not 767. The header swaps to the mobile navigation at Tailwind's lg
+   breakpoint, so between 768 and 1023 the panels were being drawn with the
+   48px desktop inset while the page around them had already dropped to a 24px
+   gutter. The surface inset and the navigation it belongs to now change at the
+   same width. */
+@media (max-width: 1023px) {
+    :root { --vk-surface-pad: 24px; }
+    .vk-panel { padding: 40px var(--vk-surface-pad); }
+}
+
+/* Dismiss affordance, top-right inside the panel. */
+.vk-panel-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--stone-500);
+    cursor: pointer;
+    padding: 0;
+    transition: color .18s ease, border-color .18s ease, background .18s ease;
+}
+/* 34px painted, 44px touchable. Growing the button itself would enlarge the
+   hover box it draws in the panel corner; an absolutely positioned pseudo
+   centred on it reaches the minimum target size without changing anything
+   visible. */
+.vk-panel-close::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+}
+.vk-panel-close:hover {
+    color: #E2E7E4;
+    /* Was #2E2E2E â€” 1.44:1 against the panel, a hover boundary nobody could
+       see. --night-line-strong measures 3.38:1. */
+    border-color: var(--night-line-strong);
+    background: rgba(255, 255, 255, 0.035);
+}
+/* No :focus-visible rule here. The global one below is identical and now
+   carries the ink halo as well, which this one did not. */
+
+/* Image placeholder */
+/*
+  THE LIGHT SLOT RE-ASSERTS THE LIGHT TOKENS, BECAUSE IT PAINTS ITS OWN GROUND.
+
+  `.on-dark` remaps --text-secondary and --text-tertiary to --text-on-dark-2 for
+  everything inside it. That is right for content that sits ON the dark band, and
+  wrong for this element, which paints --stone-50 over the top of it. On the
+  /hardware index, CollectionPage wraps band 0 in .on-dark and the slot's label
+  rendered #A3ADAA on #D8DEDB: 1.69:1, against a 4.5:1 floor. Not a near miss —
+  a light grey on a light grey, effectively invisible, and it read as passing for
+  as long as it did only because the contrast script did not model scoped
+  overrides and measured the unscoped token instead.
+
+  A component that declares its own background owns the foreground scope that
+  goes with it. Resetting the pair here fixes every token this slot could use,
+  rather than patching the two call sites that happen to use them today.
+
+  :not(.img-slot-dark), because the dark variant is composed as
+  `img-slot img-slot-dark` and genuinely IS a dark ground — it wants the
+  inherited dark values, not these.
+*/
+.img-slot:not(.img-slot-dark) {
+    --text-secondary: #5D6261;
+    --text-tertiary: #4A5148;
+    /* Restates the light-band accents because this slot can sit inside
+       .on-dark, which maps both of them to the full-strength brand orange. */
+    --amber-text: #B24700;
+    --amber-display: #E05500;
+}
+.img-slot {
+    position: relative;
+    background: var(--stone-50);
+    border: 1px solid var(--stone-200);
+    overflow: hidden;
+}
+.img-slot-dark {
+    background: var(--night-2);
+    border: 1px solid var(--night-line);
+}
+.img-slot::before, .img-slot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.img-slot::before {
+    background-image: linear-gradient(135deg, transparent calc(50% - 0.5px), var(--stone-200) calc(50% - 0.5px), var(--stone-200) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+                      linear-gradient(45deg, transparent calc(50% - 0.5px), var(--stone-200) calc(50% - 0.5px), var(--stone-200) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+    opacity: 0.55;
+}
+.img-slot-dark::before {
+    background-image: linear-gradient(135deg, transparent calc(50% - 0.5px), var(--night-line) calc(50% - 0.5px), var(--night-line) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+                      linear-gradient(45deg, transparent calc(50% - 0.5px), var(--night-line) calc(50% - 0.5px), var(--night-line) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+    opacity: 1;
+}
+
+/* Card
+   The resting border is treated as decoration: the card is identified by the
+   heading and copy inside it, and the hover state is carried by the 2px lift as
+   well as by the border, so neither depends on a 1px rule being visible. It is
+   left at --stone-200 for that reason. */
+.card {
+    background: var(--white);
+    border: 1px solid var(--stone-200);
+    /* Was `all`. */
+    transition: border-color 0.35s var(--vk-ease), transform 0.35s var(--vk-ease);
+}
+.card:hover { border-color: var(--ink); transform: translateY(-2px); }
+
+/* Input
+   The border is the only thing that identifies a text field, so it is the one
+   boundary on the light surface that genuinely has to clear 3:1 â€” hence
+   --stone-300 rather than a hairline grey. */
+.input {
+    width: 100%;
+    background: var(--white);
+    border: 1px solid var(--stone-300);
+    padding: 14px 16px;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    transition: border-color 0.2s;
+    border-radius: 0;
+}
+/* The UA ring is suppressed for the pointer-focus case only, and stated as
+   exactly that. It used to be a blanket `outline: none` on .input, which had
+   the same specificity as *:focus-visible and was beaten by it on source order
+   alone â€” one reordering away from silently deleting the keyboard ring. */
+.input:focus:not(:focus-visible) { outline: none; }
+.input:focus { border-color: var(--ink); }
+/* #A3ADAA measured 2.30:1 on white. --stone-500 is 5.43:1 there and 4.52:1 on
+   --stone-50, the darkest ground an input is laid on. The placeholders here
+   carry real instructions ("City, State", "e.g. 30 days"), so they are body
+   text and take the 4.5:1 floor. */
+.input::placeholder { color: var(--stone-500); }
+
+/* selection */
+::selection { background: var(--ink); color: var(--text-on-dark); }
+
+/* ---- focus ring ----
+   THREE TONES, AND THE THIRD IS NOT DECORATION.
+
+   This was two bands, ink and amber, and the argument for two was that they
+   covered every possible background between them. That argument was written
+   when the accent was #FFA500. It does not survive #FF6A00.
+
+   Re-derived against the current tokens. A band clears 3:1 over a background
+   of relative luminance L when (L_band + 0.05) / (L + 0.05) >= 3 in whichever
+   direction is lighter:
+
+     --ink   (L 0.0061, 6.52:1 under amber)  clears 3:1 for  L >= 0.118
+     --amber (L 0.3157, 2.52:1 on --white)   clears 3:1 for  L <= 0.072
+     --white (L 0.8731)                      clears 3:1 for  L <= 0.258
+
+   Ink and amber no longer meet: backgrounds between L 0.072 and L 0.118 —
+   mid greys from about #4B4B4B to #626262 — fail BOTH bands. No flat surface
+   in the palette lands there (--night-line is 0.027, --night-line-strong is
+   0.120), but the hero and product plates are photographs, and a photograph
+   is under no obligation to avoid a range of greys. The old two-band ring was
+   correct for the old accent and is not correct for this one.
+
+   --white restores the guarantee: it clears 3:1 up to L 0.258, ink clears from
+   L 0.118, and the two overlap, so at least one band always clears 3:1 over
+   any background whatsoever. Amber stays because the ring is the site's and
+   should look like it; it is now the middle band rather than one of the two
+   load-bearing ones.
+
+   What is drawn, from the border box outward: 2px ink, 2px amber, 2px white.
+   The box-shadow lays ink from 0 to 4px and white from 4 to 6px; the outline
+   sits at a 2px offset and paints over the outer half of the ink ring.
+
+   The offset matters: every band is drawn on whatever sits BEHIND the focused
+   element rather than on the element itself, which is what makes this hold for
+   a white button on a dark page as well as for the reverse. */
+*:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--ink), 0 0 0 6px var(--white);
+}
+
+/*
+  The main landmark is the one thing that must NOT draw this ring.
+
+  src/App.js moves focus to #main-content on every route change so a screen
+  reader restarts its reading order at the new content. That element wraps the
+  whole page, so the ring above was painting a 2px amber rectangle around the
+  entire document â€” read as a stray orange rule across the foot of every page,
+  directly above the footer, on every navigation.
+
+  Suppressing it costs nothing. #main-content carries tabindex="-1", so it is
+  not reachable by Tab and no keyboard user ever needs to see where it is; the
+  focus move exists to relocate the screen reader, not to point at a control.
+  Every genuinely focusable element keeps the ring.
+*/
+#main-content:focus,
+#main-content:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
+/* ---- screen-reader utilities ----
+   .sr-only duplicates the Tailwind utility of the same name deliberately: the
+   class is applied in App.js and SearchOverlay.js, and a
+   content-scan miss on any of those would silently expose the text on the page.
+   The declarations are identical, so whichever one wins produces the same
+   result. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* The skip link is the first thing a keyboard reaches on every page. It is
+   hidden by being moved out of the viewport rather than by clip, so it stays
+   focusable, and it becomes a real object at the top left the moment it takes
+   focus. z-index clears the header, which sits at 50. */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+.skip-link:focus {
+    position: fixed;
+    left: 12px;
+    top: 12px;
+    z-index: 100;
+    width: auto;
+    height: auto;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 18px;
+    background: var(--ink);
+    color: var(--text-on-dark);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 500;
+    text-decoration: none;
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--ink);
+}
+
+/* corner marks */
+.corner-mark {
+    position: absolute;
+    width: 10px; height: 10px;
+    border-color: var(--stone-400);
+    border-style: solid;
+}
+.corner-mark.tl { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
+.corner-mark.tr { top: 8px; right: 8px; border-width: 1px 1px 0 0; }
+.corner-mark.bl { bottom: 8px; left: 8px; border-width: 0 0 1px 1px; }
+.corner-mark.br { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
+
+/* Amber tick before headings */
+.amber-tick {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--amber);
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+/* Reveal defaults - fallback if JS disabled */
+[data-reveal] { opacity: 1; }
+
+/* Grid pattern for hero (very subtle) */
+.grid-fine {
+    background-image:
+        linear-gradient(to right, rgba(18,18,18,0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(18,18,18,0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+}
+.grid-fine-dark {
+    background-image:
+        linear-gradient(to right, rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 80px 80px;
+}
+
+/* ============================================================================
+   COMPOSITION LAYER
+   Spacing and scale only. No new colours, fonts, components, or motion.
+   Purpose: make the first viewport of every page communicate the page, and
+   give every page the same vertical rhythm across 1366 â†’ 1920 desktops.
+
+   All values are fluid (clamp) so composition holds at 1366x768, 1440x900,
+   1600x900 and 1920x1080 without per-breakpoint overrides.
+   ============================================================================ */
+
+/* --- Hero band -------------------------------------------------------------
+   The header is a fixed 72px bar. Hero top padding clears it and leaves a
+   deliberate 24-48px of air, instead of the previous 128-160px. */
+/* Content starts higher. The header is 72px; this clears it with intent and
+   no more. Excess space above the fold was the single biggest composition
+   problem â€” it pushed every page's substance down. */
+.hero-x {
+    padding-top: clamp(100px, 7.2vw, 126px);
+    padding-bottom: clamp(44px, 3.6vw, 64px);
+}
+
+/* --- Full-viewport hero ----------------------------------------------------
+   Used where the hero is the entry statement and should own the first screen
+   entirely, rather than ending partway down and leaving the next section
+   half-visible. Replaces .hero-x on those pages; do not apply both.
+
+   Why min-height and not height: content must be allowed to exceed the
+   viewport on short screens (1366x768 laptops, split windows) instead of being
+   clipped. The band fills the screen when there is room and grows when there
+   is not.
+
+   100svh rather than 100vh on mobile: 100vh measures the viewport with browser
+   chrome retracted, which makes the hero taller than what the user can
+   actually see and pushes the CTA below the fold. svh measures the smallest
+   state, so nothing hides behind the address bar. The 100vh line above it is
+   the fallback for browsers without svh. */
+/* The home hero's photographic plate.
+
+   Every child of that section is absolutely positioned â€” the image, both
+   scrims, the floor gradient and the statement, which is placed to the
+   approved mockup rather than laid out. Nothing in it contributes height, so
+   the section has to declare its own or it collapses to nothing and takes the
+   whole hero off the screen with it. That is not hypothetical: it happened the
+   moment the statement stopped being wrapped in .hero-full.
+
+   No padding, unlike .hero-full below: the horizontal inset comes from the
+   container-x wrapper inside it, so the statement lines up with the masthead
+   and with every section heading on the page rather than with a number chosen
+   for this band alone. */
+/*
+   ============================================================
+   THE BRAND SHEET, SCOPED TO THE LANDING PAGE
+   ============================================================
+
+   The supplied identity â€” Gilroy/Manrope, #121212 / #F1F0F0 / #FF6A00 /
+   #FFFFFF â€” applies to the whole of Home, header and footer included. It does
+   NOT apply to the other thirty-odd pages, which keep the site's own system:
+   Space Grotesk over Inter, with --amber at #FFA500.
+
+   IT OVERRIDES THE EXISTING TOKENS RATHER THAN ADDING NEW ONES, and that is
+   the entire technique. An earlier pass defined a parallel --hero-* set, which
+   meant every element that wanted the brand colour had to be found and edited
+   to ask for it. Redefining --ink, --white and --amber inside this scope means
+   nothing has to be edited at all: every section, card, border and label on the
+   page already reads those names, and they now resolve differently here. Home.js
+   contains no brand colour literals as a result.
+
+   The consequence to know: ANY component rendered inside .landing changes
+   appearance, including shared ones. That is intended for the header and footer
+   and is why they are inside. If a component should be exempt, it has to be
+   rendered outside this wrapper â€” there is no opt-out from within.
+
+   --font-mono IS DELIBERATELY UNCHANGED. The sheet names two faces, but the
+   site sets every small label, kicker and button in JetBrains Mono, and that
+   mono is what gives the page its engineering register. Folding those into
+   Manrope would leave the landing page speaking in two weights of one voice.
+
+   GILROY IS NAMED FIRST AND IS NOT LOADED. It is a commercial licence and
+   cannot be served from Google Fonts, so index.html requests Outfit, the
+   closest free geometric, as the fallback. Add real Gilroy via @font-face and
+   the stack picks it up here with no other change.
+*/
+.landing {
+    /*
+      THE PALETTE THAT USED TO LIVE HERE IS NOW THE SITE PALETTE.
+
+      This block held ten colour tokens — ink, white, text-on-dark, the two
+      ambers and the four night values — scoped to the Home page. Every
+      other page therefore resolved the older set from :root, so the brand
+      orange was #FF6A00 here and #FFA500 everywhere else, and the paper was
+      #F1F0F0 here and #FFFFFF everywhere else. A visitor moving from Home to
+      a product page changed design systems without anything saying so.
+
+      The values were promoted into :root and the overrides deleted. This is
+      the same correction already made to the font tokens, and for the same
+      reason: a token scoped to one page is not a theme, it is a fork.
+
+      DO NOT REINTRODUCE TOKEN OVERRIDES HERE. If a value is right for this
+      page it is right for the site; if it is not, it is not a token.
+
+      The class itself stays: .landing .vk-bar / .vk-panel above still use it
+      to recolour the navigation, and Home.js still applies it.
+    */
+    color: var(--ink);
+    font-family: var(--font-sans);
+}
+
+.hero-plate {
+    min-height: 100vh;
+    min-height: 100svh;
+}
+
+/*
+   The Home hero's statement column.
+
+   Its width is the one measurement that has to agree with the photograph. The
+   plate is dark down the left edge and its subject â€” vehicle, figures,
+   aircraft â€” occupies the right two thirds, so the column has to stop before
+   it reaches them. 58% is the same figure .measure-hero uses for headlines
+   site-wide, and on this plate it also lands just short of the ground
+   vehicle. The two constraints happened to agree; if the plate is replaced,
+   re-check that they still do.
+
+   Full width below 900px. The phone crop is taken from the bright side of the
+   frame and carries a flat scrim instead of a directional one, so there is no
+   dark column to stay inside and nothing gained by keeping the type narrow.
+*/
+/*
+   CENTRED, AND THE 58% COLUMN IS GONE.
+
+   Both of those were answers to a question that no longer applies. The column
+   existed because the statement was a two-line headline plus a paragraph plus
+   two buttons, set left so it stayed clear of the operator on the right of the
+   plate. What sits here now is one word at a time at up to 150px, and a single
+   short word anchored to the left edge of a wide screen reads as though it has
+   come loose from the composition.
+
+   It also stops fighting the photograph. The plate's subject is spread across
+   the frame â€” aircraft upper left, vehicle centre, operator right â€” so there is
+   no empty side to favour, and the middle is the one place a short word can sit
+   without appearing to belong to any of them.
+*/
+.hero-statement {
+    max-width: 100%;
+    text-align: center;
+}
+
+/*
+   THE FLOW LEGEND — 01 CONNECT -> 02 INTEGRATE -> 03 OPERATE.
+
+   Set deliberately small and quiet. It is not competing with the word above it;
+   its job is to be available when a reader looks for the context, and to be
+   ignorable when they do not. Everything about the treatment follows from that:
+   label-sized mono, wide tracking, and inactive stages held well back so the
+   eye finds the current one without being pulled down from the headline.
+
+   The colour change is transitioned over half a second rather than switched,
+   because the word above arrives in 0.9s and a legend that snaps ahead of it
+   reads as two unrelated events instead of one.
+*/
+.hero-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 1.4vw, 22px);
+    margin: clamp(26px, 3.6vh, 48px) 0 0;
+    padding: 0;
+    list-style: none;
+
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 0.82vw, 12.5px);
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.hero-flow li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7em;
+    color: rgba(241, 240, 240, 0.38);
+    transition: color 0.5s var(--vk-ease);
+}
+.hero-flow li.is--active { color: var(--text-on-dark); }
+
+.hero-flow__n {
+    color: rgba(241, 240, 240, 0.26);
+    transition: color 0.5s var(--vk-ease);
+}
+.hero-flow li.is--active .hero-flow__n { color: var(--amber); }
+
+/*
+   The connector between stages, on the li rather than between them, so it
+   belongs to the item that follows it and wraps with it on a narrow screen. A
+   separator rendered as its own element would be left stranded at the end of a
+   line.
+
+   A DRAWN LINE, NOT THE "→" GLYPH. At this size the arrow character's weight
+   and baseline are decided by whichever font resolves, and the difference
+   between JetBrains Mono's arrow and a fallback's is the difference between a
+   mark and a smudge.
+
+   AND A PLAIN LINE, WITH NO HEAD. Two attempts at one were wrong for the same
+   underlying reason: a wedge clipped out of the bar has no height to be cut
+   from, the bar being one pixel; and a rotated corner needs to be absolutely
+   positioned, which needs a positioned ancestor and a magic offset to sit on
+   the line's end — a fragile arrangement for a decoration four pixels across.
+
+   The head is not carrying anything the rest is not. Direction is already
+   stated twice over: the stages are numbered 01, 02, 03, and they are read left
+   to right. A hairline connector says "these are joined and ordered" and is the
+   same mark the rest of this interface is drawn with.
+*/
+.hero-flow li + li::before {
+    content: '';
+    width: clamp(16px, 2.2vw, 34px);
+    height: 1px;
+    margin-right: 0.9em;
+    background: rgba(241, 240, 240, 0.22);
+}
+
+/* The hero's call to action, anchored to the foot of the plate.
+
+   Absolute, so it costs the statement above it nothing. The statement is
+   vertically centred in the section; a button row in normal flow inside it
+   would push the word cycle up by its own height, which is the wrong thing for
+   the largest element on the screen to be sized by.
+
+   THE INSET IS IN vh, which is the opposite of nearly every other space on this
+   page. The hero is height-constrained — 100svh holding a word at up to 150px,
+   a legend and this row — so what matters here is how much vertical room is
+   left, not how wide the screen is. A vw-based inset is the thing that pushes
+   the buttons off a short laptop screen.
+
+   pointer-events are handed back on the row itself: the shell spans the full
+   width and would otherwise sit over the plate, swallowing nothing important
+   but blocking a region for no reason. */
+.hero-cta-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: clamp(34px, 7vh, 92px);
+    display: flex;
+    justify-content: center;
+    padding: 0 var(--vk-gutter);
+    pointer-events: none;
+}
+.hero-cta { pointer-events: auto; }
+
+@media (max-width: 560px) {
+    /* Stacked one per line on a phone, where three stages plus two arrows do
+       not fit across the screen at a legible size. The arrows go with the
+       horizontal arrangement; vertical order carries the sequence on its own. */
+    .hero-flow { flex-direction: column; gap: 0.9em; }
+    .hero-flow li + li::before { display: none; }
+}
+
+/* The hero's type used to be described here: a .hero-headline rule carrying
+   the mono face and its size, and a .hero-sub rule for the paragraph beneath
+   it. Both are gone with the elements they styled — the statement is the word
+   cycle now, and .looping-words below sets its own type.
+
+   The FACES are not named here, and .landing no longer redefines them either:
+   the site is one type system now, Inter for words and JetBrains Mono for
+   labels, resolved through the tokens in :root. See docs/TYPOGRAPHY.md. */
+/* .hero-rule is gone with the element it styled — the short orange tick above
+   the statement. Centred, it landed just under the top edge of the selector
+   brackets and read as a stray fifth mark inside them.
+
+   The brand orange has not left the hero with it: it is now on the active
+   stage number in the flow legend below, where it marks position rather than
+   simply decorating. */
+
+/* --- ONE ARCHITECTURE — the seam between the two merged halves -------------
+   Separates the three product cards from the seven-domain strip beneath them.
+
+   It is a margin on the strip rather than on the cards because the strip is the
+   element that must never touch what precedes it: the cards are also used with
+   other things below them, the strip always follows something. Put on the
+   cards, the rule would have to be repeated at every other call site.
+
+   Roughly a third of the section padding it replaces. Enough that the two
+   halves read as separate blocks, not so much that they read as separate
+   sections — which is what they were, and what the merge was undoing. */
+.architecture-domains {
+    margin-top: clamp(44px, 5.4vw, 84px);
+}
+
+/* .architecture-cta is gone with the button it spaced. The section ends on the
+   console band now, and that band's own bleed carries the close. */
+
+/* ============================================================
+   DRISHTIKON HERO — the one light plate on the site
+   See the note at the markup in pages/Drishtikon.js for why.
+   ============================================================ */
+
+.dk-hero {
+    /* Not pure #FFFFFF. A full-white plate under a black wordmark is a
+       laboratory, not a document — and on a large bright monitor it glares
+       against the dark bands either side of it. #EDEDEA is paper. */
+    background: #EDEDEA;
+    color: #121212;
+    /* Capped so a zoomed-out or very large viewport does not stretch the plate
+       into a wall of empty paper with the wordmark and the body copy pushed to
+       opposite corners. Below the cap it is still exactly one screen. */
+    min-height: min(100svh, 1100px);
+    display: flex;
+    align-items: stretch;
+}
+
+/* The dot field's own container. FlickeringGrid sizes its canvas from this
+   box, so it must be the full plate rather than shrink to the canvas. */
+.dk-hero > div:first-child { width: 100%; height: 100%; }
+
+/*
+   Clears the texture out from under the type.
+
+   A dot screen behind 12px labels and a body paragraph costs legibility for
+   nothing — the texture's job is to make the empty part of the plate alive,
+   and the empty part is the top and the right. The gradient is diagonal so it
+   releases toward the corner the wordmark and the columns share.
+*/
+.dk-hero__wash {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(to bottom, rgba(237, 237, 234, 0) 22%, rgba(237, 237, 234, 0.86) 62%, rgba(237, 237, 234, 0.95) 100%),
+        linear-gradient(to right, rgba(237, 237, 234, 0.9) 0%, rgba(237, 237, 234, 0.35) 42%, rgba(237, 237, 234, 0) 70%);
+}
+
+/* The amber dot layer. Same lattice as the ink one, masked so the colour only
+   lands where the composition is empty.
+
+   WHY A MASK AND NOT AN OPACITY. Dropping the whole layer's opacity tints the
+   paper evenly, including under the wordmark and both text columns — and the
+   accent measures 2.45:1 on this plate, so anything it touches loses contrast.
+   The mask removes it from those regions entirely instead of making it faint
+   everywhere.
+
+   The stops: transparent through the left two thirds and the lower half, which
+   is where the wordmark, the kicker column and the body column sit; visible in
+   the upper right, which the layout leaves deliberately empty. The two axes are
+   multiplied by listing two mask-images, so a dot has to clear BOTH to show —
+   that is what keeps it out of the bottom-right body column while still
+   reaching the top-right corner.
+
+   mix-blend-mode: multiply so the amber sits INTO the paper rather than on top
+   of it. Over a near-white ground the difference is the between a tint and a
+   sticker. */
+.dk-hero__accent {
+    -webkit-mask-image:
+        linear-gradient(to right, transparent 0%, transparent 48%, #000 88%, #000 100%),
+        linear-gradient(to bottom, #000 0%, #000 34%, transparent 62%);
+    mask-image:
+        linear-gradient(to right, transparent 0%, transparent 48%, #000 88%, #000 100%),
+        linear-gradient(to bottom, #000 0%, #000 34%, transparent 62%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+}
+
+/* Below the hero's two-column breakpoint the plate stacks and the copy runs
+   the full width, so there is no empty right-hand third for the accent to live
+   in. It is dropped rather than squeezed. */
+@media (max-width: 899px) {
+    .dk-hero__accent { display: none; }
+}
+
+.dk-hero__inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: clamp(60px, 12vh, 150px);
+    padding-top: clamp(120px, 13vh, 190px);
+    padding-bottom: clamp(56px, 8vh, 104px);
+    /* Proportional, and uncapped. Every other section on the site uses
+       container-x, which stops at 1360px — correct for reading columns, wrong
+       for a plate that is meant to span. The floor keeps it off the edge on a
+       phone; the ceiling stops it drifting absurdly wide on a 4K monitor. */
+    /* The second arm caps the plate's content at 1760px and centres it, so on a
+       zoomed-out or ultra-wide viewport the wordmark and the body column stay
+       together instead of drifting to the far edges. Below ~1950px wide the
+       clamp wins and the layout is unchanged. */
+    padding-inline: max(clamp(24px, 4vw, 96px), (100% - 1760px) / 2);
+    width: 100%;
+}
+
+.dk-hero__eyebrow {
+    font-family: var(--font-sans);
+    font-size: clamp(12px, 0.95vw, 14px);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #121212;
+}
+
+/*
+   The wordmark.
+
+   SANS, NOT THE MONO THE REST OF THE SITE SETS DISPLAY TYPE IN. This is the
+   product's name rather than a section heading — it is closer to a logotype
+   than to a headline, and the reference sets it in a tight grotesque. It is
+   also the one place on the site where a single word IS the composition, which
+   is what earns the exception.
+
+   The size is bounded by the word: DRISHTIKON is ten characters, and at 9.2vw
+   it runs to roughly two thirds of the container at every width above the
+   breakpoint — which leaves the right third empty on purpose. Fill it and the
+   name stops reading as a mark.
+*/
+.dk-hero__title {
+    margin: clamp(14px, 1.6vw, 24px) 0 0;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    /*
+       THE SCALE IS A VARIABLE BECAUSE FOUR PRODUCTS HAVE FOUR NAME LENGTHS.
+
+       9.2vw was solved for "DRISHTIKON" — ten characters reaching about two
+       thirds of the plate. "VIKASANA CONTROL" is sixteen and would run past
+       the gutter at the same setting; broken onto two lines it wants to be
+       smaller still, or the plate becomes all wordmark.
+
+       Multiplying one shared clamp keeps the four titles in a stated
+       relationship instead of four unrelated font sizes in four files. The
+       default is 1 so DRISHTIKON needs to say nothing. */
+    --dk-title-scale: 1;
+    font-size: calc(clamp(48px, 9.2vw, 148px) * var(--dk-title-scale));
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+    color: #121212;
+    /*
+       OPTICAL ALIGNMENT WITH THE LABELS ABOVE AND BELOW IT.
+
+       "MISSION SOFTWARE", "COMMAND AND CONTROL" and the subtitle all begin at
+       the container gutter exactly. The wordmark did too — and looked indented
+       by about seven pixels, because the "D" carries a left side bearing that a
+       14px label effectively does not. The three were mathematically flush and
+       visually stepped.
+
+       In em, so it scales with the clamp rather than being correct at one size.
+       Negative margin, not a transform: the box has to move, not just its
+       paint, or the text would still reserve its original width and the line
+       would break early at the right edge.
+    */
+    margin-left: -0.045em;
+}
+
+.dk-hero__foot {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(30px, 4vw, 56px);
+}
+/*
+   THE RIGHT COLUMN IS PINNED TO THE RIGHT EDGE, NOT GIVEN HALF THE PLATE.
+
+   It was 1fr 1fr, which sounds symmetrical and was not: the paragraphs also
+   carried max-width: 52ch, so they filled about two thirds of a column that was
+   half the plate and stopped — leaving a wide band of nothing between the text
+   and the right edge, with no line explaining where it ended.
+
+   1fr for the left and a measure-bound track for the right means the text block
+   is exactly as wide as it should be for reading, and that block sits hard
+   against the right gutter. The left column absorbs whatever is left over,
+   which is where empty space belongs on this plate — under the wordmark.
+*/
+@media (min-width: 900px) {
+    .dk-hero__foot {
+        grid-template-columns: 1fr minmax(0, 54ch);
+        gap: clamp(40px, 6vw, 110px);
+    }
+}
+
+.dk-hero__kicker {
+    font-family: var(--font-sans);
+    font-size: clamp(12px, 0.95vw, 14px);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #121212;
+}
+
+/*
+   ONE LINE, and the size is what makes that true rather than a nowrap alone.
+
+   It was capped at 26ch and broke after "&", which put "Interoperability
+   Platform" on a second line and turned a product descriptor into a two-line
+   paragraph. The cap is gone and the type came down.
+
+   Derived rather than picked: the string is 51 characters, the sans averages
+   close to 0.5em each, so the line is about 25.5em. The left column is half the
+   container less the gap — 406px at the 900px breakpoint, 625px at the 1360px
+   container. 1.28vw with a 14px floor and a 20px ceiling keeps 25.5em inside
+   both ends of that range.
+
+   The nowrap is the guarantee, and it is scoped to >=900px because below that
+   the columns stack and the full container width is available — where wrapping
+   is correct and nowrap would push the line off the screen.
+*/
+.dk-hero__sub {
+    margin: 8px 0 0;
+    font-family: var(--font-sans);
+    font-size: clamp(14px, 1.28vw, 20px);
+    font-weight: 400;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: #121212;
+}
+@media (min-width: 900px) {
+    .dk-hero__sub { white-space: nowrap; }
+}
+
+/*
+   JUSTIFIED, WHICH IS AN EXCEPTION TO A SITE-WIDE RULE.
+
+   index.css states it plainly further up: marketing pages are set
+   ragged-right, legal documents are justified. This is the one marketing
+   surface that breaks it, and the reason is what the plate is imitating — a
+   datasheet. Two flush-both-sides columns are what make a page read as a
+   specification rather than as a web page, and that reading is the entire
+   point of the light hero.
+
+   HYPHENATION IS NOT OPTIONAL HERE. Justify works by stretching word spaces,
+   so a narrow column of long words — "interoperability", "heterogeneous",
+   "surveillance" — opens rivers of white through the paragraph. Hyphens let
+   the browser break those words instead of stretching around them. Justify
+   without hyphens is worse than ragged; the two are one decision.
+
+   The -webkit- prefix is still required by Safari.
+*/
+/* The gap lives here, between siblings that really are siblings. See the note
+   at the markup for why per-paragraph margins could not do this. */
+.dk-hero__paras {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 1.8vw, 28px);
+}
+
+.dk-hero__body {
+    /* No margin and no max-width. The flex gap above owns the spacing, and the
+       grid track owns the measure — 54ch, set on the column rather than on the
+       paragraph, so the text fills the box it is given instead of stopping
+       short inside it. */
+    margin: 0;
+    font-family: var(--font-sans);
+    /* Down from clamp(15, 1.16vw, 17.5). Two justified paragraphs at the old
+       size filled most of the right column's height, which put the lifecycle
+       line and the plate's lower edge under pressure. */
+    font-size: clamp(13.5px, 1.02vw, 16px);
+    line-height: 1.6;
+    color: #1C1C1C;
+    /* Ragged, with the rest of the site — see the note on .legal-body. This
+       was the third and last justified setting on the site and the only one
+       that owned its own copy of the declarations rather than sharing the
+       rule, which is exactly the drift that note warns about. */
+    text-align: left;
+}
+
+@media (max-width: 640px) {
+    /* Ragged on a phone. A justified column narrow enough to hold eight words
+       a line cannot distribute the slack anywhere the eye will not see it, and
+       hyphenation at that measure breaks a word on most lines. */
+    .dk-hero__body { text-align: left; hyphens: manual; }
+}
+
+/* The lifecycle. Middot separators rather than the hairlines the dark hero
+   used: on paper a 1px rule at 12px type reads as a hyphen, where a raised dot
+   reads as a separator at any weight. */
+.dk-hero__cycle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55em;
+    margin-top: clamp(22px, 2.4vw, 34px);
+    font-family: var(--font-sans);
+    font-size: clamp(12.5px, 1vw, 15px);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #121212;
+}
+.dk-hero__dot { opacity: 0.45; }
+
+/* ============================================================
+   DRISHTIKON — THE PLATFORM
+   One figure, one numbered index beside it. See the note at the markup in
+   pages/Drishtikon.js for the reasoning behind the layout.
+   ============================================================ */
+
+/* ------------------------------------------------------------------
+   THE CLAIM ROW. Heading left, lead right, both on the same baseline.
+
+   It replaced a 0.9fr / 1.1fr split in which the left column held the heading
+   AND the lead and was sticky while a list scrolled past it. Two things were
+   wrong with that. The lead sat in a 40-character well, which is why it was
+   hyphenating ordinary words; and the sticky column meant the section had two
+   reading orders, one of which stood still.
+   ------------------------------------------------------------------ */
+.dk-platform {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(18px, 2vw, 28px);
+}
+@media (min-width: 1000px) {
+    .dk-platform {
+        grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+        gap: clamp(48px, 5vw, 104px);
+        align-items: end;
+    }
+}
+
+.dk-platform__heading {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(28px, 3.1vw, 48px);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+}
+
+/* Ragged-right, and the measure is wide enough that it stays even. */
+.dk-platform__lead {
+    margin: 0;
+    max-width: 62ch;
+    font-family: var(--font-sans);
+    font-size: clamp(15px, 1.1vw, 17px);
+    line-height: 1.62;
+    color: var(--stone-700);
+}
+
+/* ------------------------------------------------------------------
+   THE CAPABILITY CARDS.
+
+   An unequal grid: four columns, six cards, the first and last taking two
+   columns each. See components/ui/bento-grid.jsx for why the spans are
+   unequal and why the component is written in this codebase's idiom rather
+   than pasted from the registry.
+
+   The rules between cards are the grid's own 1px gap showing through a tinted
+   background, so no card carries a border that can disagree with its
+   neighbour's, and the outer edge is drawn by the same colour.
+   ------------------------------------------------------------------ */
+.bento-card {
+    background: var(--white);
+    padding: clamp(26px, 2.6vw, 38px);
+    /* Two rows of cards, and a two-column card holds the same copy as a
+       one-column card. Without a floor the wide ones would sit shallower than
+       their neighbours and the row would read as a mistake. */
+    min-height: clamp(210px, 17vw, 260px);
+}
+
+.bento-card__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--stone-200);
+    color: var(--ink);
+    transition: border-color 0.3s var(--vk-ease), color 0.3s var(--vk-ease);
+}
+.bento-card:hover .bento-card__icon { border-color: var(--stone-400); }
+
+/* The serial. Ink rather than accent: it orders the cards, it does not
+   highlight them — and at 11px the brand amber is 2.52:1 on paper, which is
+   under the floor for small text. --stone-700 clears at 8.5:1. */
+.bento-card__n {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    color: var(--stone-700);
+}
+
+.bento-card__t {
+    margin: clamp(26px, 2.6vw, 40px) 0 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(18px, 1.45vw, 23px);
+    line-height: 1.2;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+}
+
+.bento-card__d {
+    margin: 12px 0 0;
+    max-width: 44ch;
+    font-family: var(--font-sans);
+    font-size: clamp(14px, 1.02vw, 15.5px);
+    line-height: 1.55;
+    color: var(--stone-700);
+}
+
+/* Drawn along the card's bottom edge, inside its padding. Zero width at rest
+   so nothing is painted until the pointer is on the card. */
+.bento-card__rule {
+    position: absolute;
+    left: clamp(26px, 2.6vw, 38px);
+    bottom: clamp(22px, 2.2vw, 30px);
+    height: 2px;
+    width: 0;
+    background: var(--amber);
+    transition: width 0.45s var(--vk-ease);
+}
+.bento-card:hover .bento-card__rule { width: 38px; }
+
+/* The dark variant. Cards on --night-2 rather than on the band itself, so a
+   card still reads as an object on ink the way it does on paper; the serial
+   and the body take the dark-band text tokens, which are measured against
+   --ink in index.css rather than guessed at here. */
+.bento--dark .bento-card { background: var(--night-2); }
+.bento--dark .bento-card__icon { border-color: var(--night-line-strong); color: var(--text-on-dark); }
+/* --stone-300, not --stone-500. The hover is meant to LIFT the frame out of
+   the resting --night-line-strong (2.81:1 on the card's --night-2 ground).
+   --stone-500 did that at 3.41:1 while it was #6B7060; re-derived to #5F6355
+   for the light bands it is 2.82:1 — indistinguishable from the resting
+   border, so the hover state would have stopped existing. --stone-300 is the
+   dark-band step of the same family and gives 5.05:1 on --night-2. */
+.bento--dark .bento-card:hover .bento-card__icon { border-color: var(--stone-300); }
+.bento--dark .bento-card__n { color: var(--text-on-dark-3); }
+.bento--dark .bento-card__t { color: var(--text-on-dark); }
+.bento--dark .bento-card__d { color: var(--stone-400); }
+
+@media (prefers-reduced-motion: reduce) {
+    .bento-card__icon,
+    .bento-card__rule { transition: none; }
+}
+
+/* The closing line. Centred under the grid, set in --amber-text (#B24700,
+   4.87:1 on paper) rather than on an orange fill: a block of colour the width
+   of a sentence, sitting under one column, read as a button rather than as the
+   section's last word. */
+.dk-platform__closing {
+    display: block;
+    margin: clamp(34px, 3.6vw, 56px) auto 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: clamp(11.5px, 0.95vw, 13.5px);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1.6;
+    color: var(--amber-text);
+}
+
+
+/* ============================================================
+   DRISHTIKON — MODULARITY
+   A core rule across the section with five modules hanging off it. See the
+   note at the markup in pages/Drishtikon.js.
+
+   NO BOXES. The core was a bordered bar and the modules were cells in a
+   ruled grid; together they drew nine lines around content that needed one.
+   What is left is the single rule the risers descend from — the only line the
+   diagram actually means.
+   ============================================================ */
+/* ── 04 · MODULARITY ───────────────────────────────────────────────────
+   Read bottom-up. A solid core bar carries a row of modules above it, each
+   one dropping a short riser onto the bar. The bar is the only filled shape
+   in the section, so the eye lands on the thing everything else attaches
+   to — which is the whole claim the section is making.
+   ------------------------------------------------------------------- */
+
+.dk-mod { margin-top: clamp(38px, 4vw, 64px); }
+
+.dk-mod__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(28px, 2.6vw, 40px) clamp(24px, 2.4vw, 44px);
+    margin-bottom: clamp(26px, 2.4vw, 36px);
+}
+@media (min-width: 640px) { .dk-mod__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) {
+    .dk-mod__grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        /* The risers reach the bar themselves, so the row carries no gap of
+           its own below it once they are drawn. */
+        margin-bottom: 0;
+    }
+}
+
+.dk-mod__cell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.dk-mod__n {
+    font-family: var(--font-mono);
+    font-size: clamp(9.5px, 0.8vw, 11px);
+    letter-spacing: 0.16em;
+    color: var(--amber-text);
+}
+
+.dk-mod__t {
+    margin: clamp(12px, 1.1vw, 16px) 0 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(17px, 1.35vw, 21px);
+    line-height: 1.2;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+}
+
+.dk-mod__d {
+    margin: 10px 0 0;
+    font-family: var(--font-sans);
+    font-size: clamp(13.5px, 1vw, 15px);
+    line-height: 1.5;
+    color: var(--stone-700);
+}
+@media (min-width: 1000px) {
+    /* Floor under the riser, so the shortest column still has air between
+       its last line and the bar. */
+    .dk-mod__d { margin-bottom: clamp(18px, 1.8vw, 26px); }
+}
+
+/* The riser: drawn from the bottom of each column down onto the bar, so every
+   module reaches the core from wherever its copy happens to end. Drawn only
+   where the five columns actually sit above the bar — stacked, the modules
+   read as a list and a dangling line means nothing. */
+.dk-mod__riser { display: none; }
+@media (min-width: 1000px) {
+    .dk-mod__riser {
+        display: block;
+        width: 1px;
+        height: clamp(20px, 2vw, 28px);
+        margin-top: auto;
+        background: var(--stone-300);
+    }
+}
+
+/* The core. Named on the left, qualified on the right: the two facts a reader
+   needs before the row above it means anything. */
+.dk-mod__core {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 24px;
+    padding: clamp(15px, 1.5vw, 21px) clamp(18px, 1.8vw, 26px);
+    background: var(--ink);
+}
+.dk-mod__core-t {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(12px, 1vw, 14px);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-on-dark);
+}
+.dk-mod__core-s {
+    font-family: var(--font-mono);
+    font-size: clamp(9.5px, 0.8vw, 11px);
+    letter-spacing: 0.16em;
+    color: var(--text-on-dark-3);
+}
+
+/* ============================================================
+   MISSION BAND
+   The light section immediately under the hero: a label chip on the left, the
+   claim and its two supporting sentences on the right.
+   ============================================================ */
+
+/*
+   ONE GRID FOR THE WHOLE BAND.
+
+   Twelve columns, one gap value, declared here and referenced by everything
+   inside. The gap is a custom property rather than a literal because the inner
+   two-column row has to use the SAME number — if the two grids disagree by a
+   pixel their column lines stop coinciding, which is the exact failure this
+   grid exists to prevent.
+
+   Children default to spanning all twelve. Anything that should not says so
+   explicitly, which keeps the exceptions visible instead of leaving each
+   element to work out its own width.
+*/
+.mission-band {
+    --band-gap: clamp(16px, 1.7vw, 28px);
+
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--band-gap);
+}
+.mission-band > * { grid-column: 1 / -1; }
+
+/* The chip. Inverted out of the band it sits on, which is the same device the
+   reference uses and the reason it reads as a tab rather than as a heading.
+   The band is dark, so the inversion runs the other way: paper on ink there,
+   ink on paper here. 16.47:1. */
+.mission-band__tag {
+    display: inline-block;
+    background: var(--white);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 13px 20px;
+    white-space: nowrap;
+}
+
+/*
+   THE SIZE IS SET BY THE LONGEST LINE, NOT BY THE WHOLE HEADLINE.
+
+   A previous pass sized this so all 44 characters fitted on ONE line filling
+   the container. The arithmetic was right and the result was wrong: 44
+   characters across 1360px forces the type down to 45px, and at 45px a display
+   line stops being a statement and becomes a long sentence set slightly large.
+   The scale was the point, and it got spent on a technicality.
+
+   You cannot have both at this length. One line across a fixed width means
+   size = width / 44 characters; fewer characters per line buys more size, and
+   there is no third option. The reference this is modelled on gets its scale
+   because its headline is 18 characters, not because of anything about its
+   layout.
+
+   SO IT BREAKS INTO TWO LINES AND THE FIRST ONE FILLS. The break is explicit
+   in the markup rather than left to the wrapper — see Home.js — so the line
+   that has to fill is a known 26 characters.
+
+   JETBRAINS MONO, WHICH MAKES THE ARITHMETIC EXACT RATHER THAN ESTIMATED.
+   It was Outfit, and its advance had to be measured off a screenshot at 0.678em
+   with an error bar around it. A monospace has no error bar: every character is
+   the same width by definition. The site records the base figure on .why-h2 —
+   0.62em — and the tracking below is added to it.
+
+     26 characters x (0.62em - 0.03em) = 15.34em
+     container = 100vw - 48px          (no max-width; the track IS the viewport)
+     size      = container / 15.34
+
+   THE CEILING IS NOT THE FILL TARGET ANY MORE. It used to be both, because the
+   container stopped at 1360px and a single number could serve as the size that
+   filled it. With the centred track gone the container keeps growing, so the
+   6vw middle term is what fills, and the ceiling is only there to stop the line
+   running away on an ultrawide. 6vw sits just under container / 15.34 at every
+   width (the viewport unit counts the scrollbar, which buys the margin), so the
+   line fills roughly 94% and never overflows.
+
+   THE CEILING WAS 85px, AND 85 WAS THE 1360 ANSWER. Left alone it took hold at
+   1417px and the headline stopped growing while the page kept widening — 1288px
+   of ink in an 1859px container on a 1920 screen, a third of the line empty.
+   150px is the same calculation run out to ~2500px, past which the rag returns
+   and is accepted.
+
+   The second line is 17 characters and lands around 61% — it is meant to. A
+   two-line display headline where both lines are the same length reads as a
+   paragraph; the rag is what makes it a headline.
+
+   TRACKING IS NEGATIVE HERE, AND THAT IS A DEPARTURE FROM THE REST OF THE
+   MONO REGISTER. .looping-words and .why-h2 both carry +0.02em, and the note
+   on .why-h2 argues for it: a monospace already holds its air inside the fixed
+   advance, so opening it further is natural and closing it risks the caps
+   touching. -0.03em is a deliberate reversal, by direction, for this headline
+   only.
+
+   IT IS SAFE AT THIS SIZE, which is why the reversal is affordable. JetBrains
+   Mono is drawn for code, with generous side bearings inside each cell, so
+   three hundredths of an em comes out of the gap rather than out of the
+   letterforms. Past about -0.05em the caps begin to touch and the line stops
+   reading as set type.
+
+   TIGHTER LETTERS BOUGHT BIGGER TYPE. Narrowing the advance shortens the line,
+   and the size is derived from the line filling the container — so closing the
+   gaps raised the cap from 78px to 85px rather than leaving a gap at the right
+   edge. The two changes are one change.
+*/
+.mission-band__lede {
+    margin: clamp(22px, 2.6vw, 40px) 0 0;
+    /* OFF THE MONOSPACE, onto the site face. At 85px a fixed advance turns a
+       26-character line into ASCII art: the gaps around I, T and the word
+       spaces open to the width of a W. Mono is right at 11px on .eyebrow /
+       .meta, where the even rhythm IS the effect, and right on the hero word
+       cycle, where a single word sits in a bracketed fixed-width window whose
+       geometry the animation depends on. It is wrong on a sentence at display
+       size. See docs/TYPOGRAPHY.md.
+
+       Leading and tracking are unchanged and still fit: uppercase Inter runs
+       about 15.1em on the longest line at -0.03em, so 6vw needs 15.1 x 0.06 =
+       0.906 of the viewport and the container is 100vw - 48px. It clears at
+       every width. */
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(28px, 6vw, 150px);
+    /* 1.06, a step tighter than .why-h2's 1.12. Leading and tracking are one
+       decision: a line closed up horizontally and left open vertically reads as
+       two separate lines rather than a block, which is the opposite of what
+       tightening was for. Still above 1 — mono sits on taller metrics than a
+       proportional face at the same nominal size, and the sub-1 leading that
+       suited Outfit collides the caps here. */
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    color: var(--amber);
+    /* Optical, not geometric: "C" carries a left sidebearing, so its ink starts
+       inside the box while the chip's filled block above starts exactly at the
+       gutter. This pulls the ink back onto the gutter line, which is what the
+       eye measures.
+
+       THE VALUE WAS SET FOR THE MONOSPACE, where the glyph sits centred in a
+       fixed cell. Inter's cap sidebearing is not the same, so this wants
+       checking by eye at desktop width and adjusting if the heading now reads
+       a hair indented or a hair proud. */
+    margin-left: -0.02em;
+}
+
+/* The break is a block span rather than a <br>, so the two lines are addressable
+   and the rag is a layout decision rather than a character in the copy. */
+.mission-band__lede span { display: block; }
+
+/*
+   The supporting sentences, on the same twelve columns as everything above.
+
+   IT REPEATS THE PARENT'S GRID RATHER THAN DEFINING ITS OWN. It used to be
+   `1fr 1fr` with a gap of its own, which put the second column's left edge at
+   roughly 52% — a position that corresponded to nothing else on the page. Same
+   twelve columns, same gap variable, and both edges now land on lines the
+   headline and the chip also sit on.
+
+   Columns 1-5 and 8-12: equal at five columns each, the second flush to the
+   right edge, and two clear columns between them. The gutter is wide, and that
+   is the point — it is a stated interval on the grid rather than whatever was
+   left over.
+*/
+.mission-band__cols {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--band-gap);
+    margin: clamp(24px, 2.8vw, 42px) 0 0;
+}
+
+.mission-band__cols p:first-child { grid-column: 1 / span 5; }
+.mission-band__cols p:last-child { grid-column: 8 / span 5; }
+
+.mission-band__cols p {
+    margin: 0;
+    /*
+      NO max-width, AND ITS REMOVAL IS THE OTHER HALF OF THE ALIGNMENT FIX.
+
+      It was 46ch. Each column is about 550px, and 46ch at this size is about
+      400px — so every paragraph filled roughly seventy percent of the column it
+      was given and stopped, leaving two ragged right edges floating in the
+      middle of two empty spaces. Two caps were fighting: the grid said one
+      width, the measure said another, and the narrower won every time.
+
+      The COLUMN is the measure now. Five of twelve at this container works out
+      near 58 characters, which is inside the comfortable range on its own — so
+      the cap was not buying anything the grid was not already providing.
+
+      A CAP CAME BACK, AND IT IS NOT THE SAME MISTAKE. 46ch was ~400px against a
+      550px column: it fought the grid at every width and always won, which is
+      why both paragraphs sat at 70% of their space. 31em is set just UNDER the
+      column, so at most widths the column is still the measure and this does
+      nothing at all.
+
+      Where it does act is the narrow band around 1408-1440px, and it is there
+      for a specific failure. The body size clamp reaches its lower bound at
+      16px while the column keeps growing, so the characters-per-line figure
+      PEAKS at about 65 in that band — and the left sentence is exactly 65
+      characters. It fitted on one line at 1440px while the right ran to two,
+      which is the lopsided pair this was rewritten to avoid, on one of the most
+      common laptop widths there is.
+
+      IN em, NOT ch. 1ch is the width of the "0" glyph, which in a proportional
+      face has almost nothing to do with the average character — the reason the
+      old 46ch behaved so unpredictably. 31em is about 62 characters of Manrope
+      at any size, because it scales with the type rather than against it.
+    */
+    max-width: 31em;
+
+    /*
+      THE SAME REGISTER AS .why-body, which is the class setting "Mission
+      software is the foundation. Hardware delivers it where operations demand."
+      further down the page. Family, size, weight and leading are copied from it
+      exactly rather than approximated, so the two bands read as one voice.
+
+      RESTATED RATHER THAN SHARED, and that is a real cost worth naming. The
+      honest move is for both to use one class; they do not, because .why-body
+      also carries --stone-800, a tone for light bands, and this band is dark.
+      Extracting the shared part would mean splitting .why-body into a type
+      class and a colour class and touching a section that is working. If a
+      third band ever wants this treatment, do that extraction rather than
+      copying these four lines a second time.
+    */
+    font-family: var(--font-sans);
+    font-size: clamp(16px, 1.2vw, 19px);
+    font-weight: 400;
+    line-height: 1.55;
+    /* The one deliberate departure from .why-body. It sets --stone-800 for a
+       light band; this is the equivalent step back from full strength on a dark
+       one — enough that the body does not compete with the heading above it,
+       without introducing another colour to the palette. */
+    color: rgba(241, 240, 240, 0.72);
+}
+
+@media (max-width: 820px) {
+    /* Stacked on a phone. Five columns of a twelve-column grid on a 400px
+       screen is four words a line, which is worse than the long measure the
+       split was avoiding. */
+    .mission-band__cols p:first-child,
+    .mission-band__cols p:last-child {
+        grid-column: 1 / -1;
+    }
+    .mission-band__cols p:last-child {
+        margin-top: clamp(14px, 2.4vh, 20px);
+    }
+}
+
+/* ============================================================
+   LOOPING WORDS
+   The vertical word cycle in the hero: CONNECT / INTEGRATE / OPERATE.
+
+   THE COMPONENT SHIPPED WITHOUT ANY OF THIS. It renders a set of class names
+   and nothing else â€” no stylesheet came with it â€” so every rule below is
+   written to make the markup work rather than copied from a source. Two of
+   them are load bearing for the animation and are marked as such.
+   ============================================================ */
+
+/* The <h1> wrapping the loop. It carries no type of its own â€” .looping-words
+   sets the face and size â€” so this only strips the heading defaults that would
+   otherwise add space the three-row window has not accounted for. */
+.hero-loop {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: 1;
+}
+
+.looping-words {
+    --lw-row: 1.22em;
+
+    position: relative;
+    width: 100%;
+    /* LOAD BEARING, and it must agree with VISIBLE_ROWS in looping-words.jsx.
+       The JS translates the list by 100/total percent per step and reshuffles
+       when the window reaches the end; if the height here shows a different
+       number of rows than the JS believes, the reshuffle happens where the eye
+       can see it and the loop visibly jumps.
+
+       ONE ROW. Three showed the previous and next words either side of the
+       selected one, which is the effect this now deliberately does not have. */
+    height: var(--lw-row);
+
+    font-family: var(--font-mono);
+    /* Much larger, because it is the only thing on the first screen now.
+       "COORDINATE" is the longest word at 10 characters, and JetBrains Mono
+       advances 0.62em each including tracking, so the line is 6.2em wide. At
+       the 150px cap that is 930px, inside the 1360px container with room; at
+       9vw it holds the same ratio down through the tablet range.
+
+       RE-DERIVE THIS IF THE WORDS CHANGE. The cap is not a look, it is the
+       largest size at which the longest word still fits: characters x 0.62em x
+       font-size must stay under the container width. */
+    font-size: clamp(44px, 9vw, 150px);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #FFFFFF;
+}
+
+/*
+   The window.
+
+   NO MASK, AND NO FADE ELEMENT. Both belonged to the three-row layout, where
+   the point was to soften the neighbouring words at the edges of the frame.
+   With a single row those edges are the top and bottom of the word itself â€” a
+   mask would fade the ascenders and descenders of the very thing it is meant
+   to present. Plain overflow clipping is what a one-row window wants.
+
+   (The supplied .looping-words__fade element is still not rendered, and now for
+   two reasons: it painted a background colour over a photograph, and there is
+   nothing left for it to fade.)
+*/
+.looping-words__containers {
+    height: 100%;
+    overflow: hidden;
+}
+
+ul.looping-words__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    /* LOAD BEARING. GSAP animates yPercent, which is a share of this element's
+       OWN height, so the list must be exactly as tall as its rows â€” one row of
+       padding or a stray line-height and every step lands short. */
+    will-change: transform;
+}
+
+li.looping-words__list {
+    height: var(--lw-row);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.looping-words__p {
+    margin: 0;
+    /* The selector measures this element to size itself. A wrapped word would
+       report the width of the container rather than of the text. */
+    white-space: nowrap;
+}
+
+/*
+   The corner brackets around the selected row.
+
+   Width is set by GSAP as a percentage, so this element's containing block has
+   to be the same box the list fills â€” hence .looping-words carrying position
+   relative and the list spanning its full width. Anything else and the measured
+   percentage refers to a different width than the one it is applied to.
+*/
+/* CENTRED ON THE FRAME, not anchored to its left edge. GSAP animates only
+   `width`, so the translate stays put and the box grows and shrinks about its
+   own centre â€” which is where the word is, now that the rows are centred. */
+.looping-words__selector {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: var(--lw-row);
+    /* The width before GSAP takes over on the first frame. Without it the
+       brackets flash at full width on mount. */
+    width: 0;
+    pointer-events: none;
+}
+
+.looping-words__edge {
+    position: absolute;
+    width: 0.20em;
+    height: 0.20em;
+    border-top: 0.035em solid var(--amber);
+    border-left: 0.035em solid var(--amber);
+    /* Stood off the word rather than sitting on it. In em so the gap scales
+       with the type instead of closing up as the headline grows. */
+    top: -0.10em;
+    left: -0.22em;
+}
+/* Three rotations of one shape rather than four sets of border declarations,
+   so the corner mark is defined once and the variants only say where. The
+   border weight is in em too, so the marks stay proportional to the word. */
+.looping-words__edge.is--2 { top: -0.10em; left: auto; right: -0.22em; transform: rotate(90deg); }
+.looping-words__edge.is--3 { top: auto; bottom: -0.10em; left: auto; right: -0.22em; transform: rotate(180deg); }
+.looping-words__edge.is--4 { top: auto; bottom: -0.10em; left: -0.22em; transform: rotate(270deg); }
+
+@media (prefers-reduced-motion: reduce) {
+    /* The component already declines to start its timeline under this setting.
+       This covers the width tween on the brackets, which runs once on mount
+       regardless. */
+    .looping-words__selector { transition: none; }
+}
+
+/* The 58% desktop column and the nowrap that went with it are both gone. They
+   belonged to the two-line headline: the column kept it clear of the operator
+   on the right of the plate, and the nowrap stopped its second line ragging
+   onto a third. A single centred word needs neither â€” it is one word, it
+   cannot wrap, and centred it is clear of everything. */
+
+.hero-full {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    /* Clearance is derived from --vk-header-h rather than hardcoded, so the
+       hero follows the bar when it lifts from docked to floating instead of
+       the two drifting apart.
+
+       Both paddings are vh-relative as well as vw-relative: on a short screen
+       the padding is what pushes the call to action out of view, so it has to
+       shrink with the viewport rather than only with its width. */
+    padding-top: calc(var(--vk-header-h) + clamp(20px, 3.2vh, 52px));
+    padding-bottom: clamp(56px, 7vh, 96px);
+}
+.hero-full > * { width: 100%; }
+
+@media (max-width: 899px) {
+    /* Below the hero grid's breakpoint the composition stacks and is naturally
+       taller than the viewport. Forcing a full-height band there only adds
+       dead space above the headline. */
+    .hero-full {
+        min-height: 0;
+        display: block;
+        padding-top: calc(var(--vk-header-h) + clamp(28px, 6vw, 54px));
+        padding-bottom: clamp(44px, 3.6vw, 64px);
+    }
+}
+
+/* ---- Width system ---------------------------------------------------------
+   Two layouts, one grid. Nothing uses an arbitrary width.
+     .layout-split     marketing pages â€” full container, 5/7 hero grid
+     .layout-legal-doc legal/policy documents â€” single centered reading column
+*/
+/* Document container for legal pages (Privacy, Cookie, Terms, Security). A
+   dedicated documentation measure â€” narrower than a marketing container,
+   centered, no side rail â€” so the page reads like a legal document (OpenAI /
+   Stripe / Apple legal) rather than a landing page with legal text in it. */
+/*
+  The container IS the column. Not near enough â€” exactly.
+
+  It was 1080px, which no longer corresponds to anything now that the body
+  column is --measure: the document would have been a 512px column of text at
+  the left edge of a 1080px box with 568px of nothing beside it. An
+  intermediate revision set 36rem, which was better and still wrong: 576px
+  around a 512px column leaves a 64px gap collecting on the right, which is
+  the same asymmetry at a smaller scale and precisely the defect this page was
+  being judged for.
+
+  Set to --measure, the container and the column are one object and the page's
+  own gutters centre it. Margins are symmetric, there is no leftover, and the
+  page reads as a document.
+*/
+/*
+  The document fills the page, like every other page on the site.
+
+  It was --measure (512px) centred, which set the whole document to the width
+  of one paragraph and left the rest of the window empty on both sides. That is
+  a defensible way to set a legal page, and it is not what this site does
+  anywhere else: the container is what occupies the page.
+
+  So the document now takes the full container, and the reading measure is
+  applied to the body copy alone â€” see .legal-body.measure below. Headings, the
+  "last updated" line and the hairline run the full width; paragraphs are held
+  to a line length the eye can return from.
+*/
+.layout-legal-doc {
+    max-width: 100%;
+}
+
+/* --- Section rhythm --------------------------------------------------------
+   The original blanket 112px (py-28) was uniform rather than wrong. These sit
+   just below it and scale down gracefully on smaller screens. Whitespace here
+   is deliberate breathing room, not wasted space â€” sections should not feel
+   compressed in service of the fold. */
+.section-y {
+    padding-top: clamp(56px, 5.2vw, 96px);
+    padding-bottom: clamp(56px, 5.2vw, 96px);
+}
+.section-y-sm {
+    padding-top: clamp(38px, 3.4vw, 60px);
+    padding-bottom: clamp(38px, 3.4vw, 60px);
+}
+.section-pb { padding-bottom: clamp(56px, 5.2vw, 96px); }
+/* First section after a hero â€” reads as continuous with it, not detached. */
+.section-after-hero { padding-top: clamp(24px, 2.2vw, 40px); }
+
+/* --- Display scale ---------------------------------------------------------
+   Previous headings ran to 112-128px, which pushed body copy, stats and CTAs
+   below the fold. Capped so 1920 never overscales. */
+/* Display scale, stepped down ~12% from the previous pass. The page reads as
+   engineered rather than zoomed; hierarchy is carried by contrast and spacing
+   rather than by sheer size. */
+/* The headline is the one element allowed to be large. Everything else was
+   stepped down so the contrast between them does the work. */
+.fs-hero    { font-size: clamp(38px, 4.6vw, 74px); line-height: 0.97; }
+.fs-hero-sm { font-size: clamp(34px, 4vw, 62px);   line-height: 1.0; }
+.fs-h2      { font-size: clamp(27px, 3vw, 46px);   line-height: 1.06; }
+.fs-h3      { font-size: clamp(23px, 2.2vw, 31px); line-height: 1.1; }
+.fs-sub     { font-size: clamp(18px, 1.6vw, 23px); line-height: 1.26; }
+
+/* Body scale. Looser leading than the previous pass â€” long-form sections were
+   reading dense at desktop distance. */
+.copy-lead  { font-size: clamp(15.5px, 1.08vw, 17.5px); line-height: 1.66; }
+.copy-body  { font-size: clamp(14.5px, 0.98vw, 15.5px); line-height: 1.7; }
+
+/*
+  Legal document body copy.
+
+  FULL WIDTH. The paragraph takes the whole container â€” no reading measure, no
+  cap. This overrides the .measure class the component applies, which is why
+  both classes are named in the selector.
+
+  This is a deliberate exception to the site's one-measure rule, made on
+  instruction, and it is worth writing down what it costs so nobody "fixes" it
+  by accident. On a wide monitor these lines run past 150 characters, which is
+  roughly twice the length at which the eye reliably finds the start of the next
+  line. Long lines are the classic cause of re-reading the same line twice.
+  Every other page on the site is set to --measure for that reason.
+
+  If it is ever reconsidered, the middle position is `max-width: 88ch` here: the
+  page still reads as full-width because the headings, the rule and the metadata
+  run edge to edge, and only the paragraphs are held back.
+
+  JUSTIFIED â€” flush on both edges, the way a printed contract is set. An earlier
+  revision of this comment argued against justification on the grounds that
+  browsers have no hyphenation engine worth the name. That was right about the
+  cause and wrong about the conclusion: the word-space stretching that opens
+  white rivers only happens when the browser has no permission to break words.
+  `hyphens: auto` grants it, and the engine then has somewhere to put the slack.
+  The rule below sets both together; they are not separable.
+
+  hyphens: auto needs a language to choose a dictionary. The document declares
+  lang="en" in public/index.html.
+
+  text-align-last keeps the final line of each paragraph ragged. Stretching a
+  three-word last line across the full width is the one thing justification must
+  never do.
+
+  Below 520px the text returns to ragged-right. At phone width the column is
+  around 45 characters, where justification has too few word spaces to
+  distribute and fails visibly; a justified paragraph that has gone wrong is
+  harder to read than a ragged one that never tried.
+*/
+.legal-body.measure {
+    max-width: 100%;
+}
+
+/*
+  The justified setting, as one rule with two users.
+
+  .legal-body applies it to the policy pages. .text-justified is the same thing
+  as an opt-in class, for the places elsewhere on the site that are set as a
+  document rather than as marketing copy â€” the About page's opening statement
+  is the first. They share a definition rather than owning two copies, because
+  two copies of a typographic rule drift and then one page is set differently
+  from another for no reason anybody can remember.
+
+  Justification and hyphenation are declared together and must stay together.
+  Without `hyphens: auto` the browser can only stretch word spaces to reach the
+  right margin, which opens the white rivers that make justified web text look
+  broken â€” worse than the ragged edge it replaced. `hyphens: auto` needs a
+  language to choose a dictionary; the document declares lang="en" in
+  public/index.html.
+
+  text-align-last keeps each paragraph's final line ragged. Stretching a
+  three-word last line across the full measure is the one thing justification
+  must never do.
+*/
+/*
+  RAGGED RIGHT. JUSTIFICATION IS OFF SITE-WIDE, BY DIRECTION, 23 SEPTEMBER 2026.
+
+  This rule set 35 of the site's 109 body paragraphs justified against 71
+  ragged, which is the inconsistency a reader sees before any of the reasoning
+  above reaches them: two settings for the same kind of prose, chosen per page.
+
+  The argument above — that columns earn justification, and that hyphens: auto
+  keeps the rivers out — held at the width the pages were built to. It stopped
+  holding when the centred 1360px track was removed: the columns it applies to
+  now run wider on some pages and narrower on others, and the first place it
+  showed was the Our Mission block on /company, where "organisations",
+  "manufacturers" and "accountability" in a ~490px column opened word spaces to
+  the width of an em on nearly every line. hyphens: auto did not prevent it;
+  hyphenation can only break where a dictionary allows, and these words break
+  badly or not at all.
+
+  EnquiryNote.js already carried "NEVER text-justified" for its own copy, and
+  the mission block was set ragged for the same reason a few hours earlier.
+  This finishes what both had started rather than leaving three pages set one
+  way and the rest the other.
+
+  .legal-body KEEPS THE CLASS — it still carries the full-width override above,
+  which is a measure decision and not an alignment one. .text-justified is gone
+  from the selector because nothing should opt into justification any more; the
+  class is removed from its one call site in Company.js with this change.
+
+  hyphens GOES WITH IT. The note above is right that justification and
+  hyphenation are one decision — so they are removed as one. Automatic
+  hyphenation on ragged-right web copy buys nothing but hyphens.
+*/
+.legal-body {
+    text-align: left;
+}
+
+/*
+  The 520px override that sat here is gone with the justification it corrected.
+  It reverted .text-justified and .legal-body to ragged-right below phone width,
+  on the grounds that a ~45-character column has too few word spaces to absorb
+  the stretch. That reasoning is now the rule at every width rather than an
+  exception at one, so the breakpoint has nothing left to do.
+*/
+@media (max-width: 520px) {
+    .legal-body {
+        text-align: left;
+        -webkit-hyphens: manual;
+        hyphens: manual;
+    }
+}
+
+/* ============================================================================
+   MEASURE â€” ONE READING WIDTH, WHOLE SITE
+
+   This replaces roughly twenty different paragraph widths. Before this block
+   the site carried .measure-lead at 43ch, .measure-copy at 54ch, a hard 920px
+   on the legal pages, fifteen max-w-md, and one-off inline caps at 44, 46, 52,
+   54, 56, 58, 62, 68 and 78ch. Nothing chose between them; they accumulated.
+   The result was that no two paragraphs on the site were the same width, and
+   on the legal pages a 920px column inside a 1080px container left an
+   asymmetric gap down the right-hand side.
+
+   WHY ONE PIXEL VALUE AND NOT ONE ch VALUE
+   ch is relative to the element's own font-size, so `66ch` on 15.5px body and
+   `66ch` on 17.5px lead copy hold the SAME character count but render at
+   different widths â€” typographically identical, visually ragged. Two
+   paragraphs stacked in the same column would not share an edge. A single
+   length gives every text block on the site one right-hand boundary, which is
+   what makes a page read as set rather than as assembled.
+
+   THE VALUES â€” TWO, AND ONLY TWO
+   Inter's average lowercase advance is ~0.48em.
+
+     --measure     32rem / 512px    the default. Every paragraph on the site.
+                     14.0px  ->  ~76 characters
+                     15.5px  ->  ~69 characters
+                     17.5px  ->  ~61 characters
+
+     --measure-sm  25rem / 400px    small print only: form help text, field
+                   captions, notices set at 12-13px.
+                     12.5px  ->  ~67 characters
+
+   The second value exists because a single length cannot serve both ends of
+   the type scale: 512px is 69 characters at body size and 91 at 12.5px, which
+   is the same defect this block removes, reintroduced in the small print. Two
+   size-matched widths is a system. Twenty accumulated ones was not. Do not
+   add a third.
+
+   Both are rem rather than px so the column still tracks a reader who has
+   raised their base font size, and both land on the 8px grid at the default
+   root size (512 = 64x8, 400 = 50x8).
+
+   HOW TO USE IT
+   Apply .measure to any run of prose. Small print takes the same idea at the
+   narrower width, but through the token rather than a class: the six call
+   sites that need it set max-width: var(--measure-sm) inline. There was a
+   .measure-sm class here and it was removed on 3 September 2026 because
+   nothing in src/ referenced it. If a call site ever wants the class back,
+   reinstate it here pointed at --measure-sm. Do not add a third value.
+   The two legacy class names below are kept and re-pointed at the same token,
+   so every existing call site inherits the correction without being edited. If a
+   block genuinely cannot use this measure, that is a layout problem to solve
+   in the layout.
+   ============================================================================ */
+:root {
+    --measure: 32rem;
+    --measure-sm: 25rem;
+}
+
+.measure { max-width: var(--measure); }
+
+/* The legacy names, all now the same width. Retained so the ~35 existing
+   call sites do not each need an edit, and because .measure-lead reads more
+   clearly than .measure at the top of a hero. */
+.measure-copy,
+.measure-lead { max-width: var(--measure); }
+
+/* Keeps H1s at roughly 40-60% of viewport width rather than 80-100%, so
+   headlines break into fewer, longer lines. A headline measure, not a
+   reading measure.
+
+   The percentage is guarded by a breakpoint, which it was not. `min(58%,
+   860px)` with no floor collapses on a small screen: at 320px the parent is
+   272px, so the H1's box becomes 158px while the display type is still
+   clamped to a 38px floor â€” a single word measures wider than its own
+   container, and an eleven-word headline sets one word per line and overflows.
+   It applies to fourteen H1s across the site, so the guard is worth more than
+   the percentage. Below 900px the headline simply takes the column. */
+.measure-hero { max-width: 100%; }
+@media (min-width: 900px) {
+    .measure-hero { max-width: min(58%, 860px); }
+}
+
+/* ---- Rag ------------------------------------------------------------------
+   Marketing pages are set ragged-right. Legal documents are justified; that is
+   handled at .legal-body above and this note explains why the site does both.
+
+   An earlier revision of this comment argued against justification anywhere,
+   and the argument was sound as far as it went: forced justification stretches
+   word spaces to reach the right margin, which opens vertical "rivers" of
+   white through a paragraph and moves the irregularity from the right edge
+   into the body of the text. What it missed is that the stretching is only
+   unavoidable when the browser has no permission to break words. hyphens: auto
+   grants that permission, and with it the engine has somewhere to put the
+   slack other than the word spaces. The legal pages take that route.
+
+   Marketing copy does not, for two reasons. Its paragraphs are short and often
+   sit in columns narrower than the legal measure, where justification has too
+   little room to distribute; and hyphenated product names and technical terms
+   broken across lines read badly in a sentence someone is meant to skim.
+
+   So: text-wrap: pretty here, justification there. Neither is a default worth
+   applying to the other.
+
+   text-wrap: pretty asks the browser to consider the whole paragraph when
+   breaking rather than one line at a time. It removes single-word last lines
+   and evens the rag, at no cost to word spacing. Combined with one fixed
+   measure across the site, this is what makes the columns read as set.
+
+   It degrades silently: an engine without it falls back to normal line
+   breaking and the paragraph is still correct, just less even. */
+p, .copy-body, .copy-lead, .legal-body, .measure {
+    text-wrap: pretty;
+}
+
+/* --- Hero grid -------------------------------------------------------------
+   A single 12-column split used by every hero: text on 5, visual on 7.
+   items-start is deliberate â€” the previous items-end bottom-aligned the visual,
+   which is what pushed images hundreds of pixels below the headline. The visual
+   now starts at the same optical line as the H1. */
+.hero-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(28px, 3vw, 48px);
+    align-items: start;
+}
+@media (min-width: 900px) {
+    /* Wider gutter between copy and visual â€” the two columns were crowding
+       each other and reading as one dense block. */
+    /* Horizontal relationship carries the composition; vertical space does not. */
+    .hero-grid { grid-template-columns: 5fr 7fr; gap: clamp(56px, 5.6vw, 108px); }
+}
+/* Drops the visual to the headline's optical top rather than the eyebrow's, so
+   it reads as part of the hero rather than floating alongside it. */
+.hero-visual { margin-top: clamp(4px, 1.4vw, 24px); }
+
+/* --- First-viewport stack --------------------------------------------------
+   Tightens the headline -> copy -> CTA relationship so the group reads as one
+   unit rather than three disconnected bands. */
+/*
+  Rhythm, not uniform spacing. A generous gap after the headline lets it stand
+  alone and dominate; the lead and CTA then sit closer together so they read as
+  one supporting group rather than three competing blocks.
+*/
+.stack-lead  { margin-top: clamp(30px, 3vw, 48px); }
+.stack-cta   { margin-top: clamp(22px, 2vw, 30px); }
+
+/* ============================================================================
+   EDITORIAL DOCUMENT LAYER
+   Spacing, measure and rhythm for pages that are documents rather than
+   compositions. Currently: the Company page.
+
+   Nothing here introduces a colour, a typeface or a motion curve. Every value
+   is either an existing token or a multiple of 8.
+
+   THE 8px SYSTEM
+   Vertical padding, gutters and gaps on these pages resolve to multiples of 8
+   at every endpoint of every clamp. Tailwind's scale is 4px-stepped, so the
+   utilities reached for in the JSX are restricted to the even steps â€”
+   py-6 (24), py-8 (32), gap-8 (32), gap-12 (48), mb-8 (32), mb-16 (64). The
+   fluid values below carry the same constraint in their min and max: a clamp
+   that lands on 112px at its ceiling and 64px at its floor is on the system
+   even though the interpolation between them is not.
+
+   THE GRID
+   One twelve-column grid, split 5 / 7. The five-column column carries the
+   `// SECTION` eyebrow and the statement heading; the seven-column column
+   carries everything else, capped at --measure. The FAQ component's
+   variant="document" is on the same split, so a page built from these classes
+   stays on-grid through a component this layer does not own.
+
+   Reading width is NOT defined here. It is defined once, in the MEASURE block
+   above, and this layer uses it like everything else does. An earlier revision
+   of this block carried its own --doc-measure/--doc-measure-lead pair, which
+   redeclared .measure-doc and .measure-doc-lead AFTER the MEASURE block had
+   pointed them at --measure. Same specificity, later rule won, and the
+   site-wide correction was silently dead for those two class names. Do not
+   reintroduce a local measure here.
+   ============================================================================ */
+
+/* --- Hero band -------------------------------------------------------------
+   .hero-x with its endpoints moved onto the eight. The shared class runs
+   100-126px; both of those are off the system, and it is used by a dozen other
+   pages, so it is left alone and this is declared alongside it rather than
+   over it. 104px still clears the 72px bar with the 24-32px of deliberate air
+   .hero-x was written to leave. */
+.doc-hero {
+    padding-top: clamp(104px, 7.2vw, 128px);
+    padding-bottom: clamp(48px, 3.6vw, 64px);
+}
+
+/* --- Section rhythm --------------------------------------------------------
+   Deliberately larger than the site-wide .section-y (56-96). A document is
+   read one section at a time and the space between sections is what tells the
+   reader a section has ended; on a page with no dividing colour bands it is
+   the only thing that does. */
+.doc-section {
+    padding-top: clamp(64px, 7vw, 112px);
+    padding-bottom: clamp(64px, 7vw, 112px);
+}
+/* For a section that is a continuation of the one above it rather than a new
+   argument â€” currently the constraints, which are the negative half of the
+   principles immediately preceding them. */
+.doc-section-tight {
+    padding-top: clamp(48px, 4.5vw, 72px);
+    padding-bottom: clamp(48px, 4.5vw, 72px);
+}
+/* --- Rail heading ----------------------------------------------------------
+   A display heading set inside the four-column rail rather than across the
+   container. .fs-h2 tops out at 46px, which in a ~430px column wraps to five
+   lines and turns the rail into a wall; this tops out at 36px and wraps to
+   two or three. It is the same typographic idea at the size the column can
+   actually hold â€” not a new step in the scale, and it is not to be used
+   anywhere a heading has the full container to run in. */
+.doc-h2 {
+    font-size: clamp(25px, 2.5vw, 36px);
+    line-height: 1.08;
+}
+
+/* --- Hairline lists --------------------------------------------------------
+   A rule above every row and one below the list closes the set without a
+   double rule anywhere. The bottom rule is on the container rather than on the
+   last row because rows are individually wrapped by Reveal, so :last-child
+   would not match the row. */
+.doc-list { border-bottom: 1px solid var(--stone-100); }
+.doc-row { border-top: 1px solid var(--stone-100); }
+.doc-list-dark { border-bottom-color: var(--night-line); }
+.doc-list-dark .doc-row { border-top-color: var(--night-line); }
+
+/* A row that is a link. No border, no fill, no lift â€” the row is already
+   bounded by the list's hairlines, and adding a hover surface to a row inside
+   a ruled list produces a band that appears to detach from it. What moves is
+   the arrow, which is the affordance, and the title, which is the target. */
+.doc-link {
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.28s var(--vk-ease);
+}
+.doc-link-title { transition: color 0.28s var(--vk-ease); }
+.doc-arrow {
+    display: inline-block;
+    color: var(--stone-300);
+    transition: transform 0.28s var(--vk-ease), color 0.28s var(--vk-ease);
+}
+.doc-link:hover .doc-arrow { transform: translateX(4px); color: var(--ink); }
+.doc-link:hover .doc-link-title { color: var(--ink); }
+/* The row is 32px of padding on either side of its content, so the focus ring
+   would otherwise be drawn far outside the rule it belongs to. */
+.doc-link:focus-visible { outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .doc-link, .doc-link-title, .doc-arrow { transition: none; }
+}
+
+/* --- Statement -------------------------------------------------------------
+   The load-bearing sentences â€” the ones the source doctrine marks as not to be
+   paraphrased. They are set in the display face at .fs-sub and given a rule
+   above rather than being centred, enlarged or pulled out into a band. A
+   sentence that matters does not need a box; it needs space and a different
+   voice from the paragraph before it. */
+.doc-statement {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+/* Rule above, then 48-64px of air, then the statement. Used where a statement
+   closes a section rather than opening one. */
+.doc-statement-block {
+    margin-top: clamp(48px, 4vw, 64px);
+    padding-top: clamp(48px, 4vw, 64px);
+    border-top: 1px solid var(--stone-100);
+}
+.doc-statement-block-dark { border-top-color: var(--night-line); }
+
+/* --- Statement headline ----------------------------------------------------
+   The supplied design sets section headings as short, uppercase, tightly
+   leaded display type stacked in a narrow left column â€” five or six lines of
+   two or three words each â€” with the closing clause in amber. It is a
+   deliberate device: the headline becomes a block with a shape, and the body
+   copy beside it is what gets read.
+
+   It only works in a narrow column. Given the full container the same type
+   sets as one long line and the effect disappears, which is why the page pairs
+   it with a 5 / 7 grid rather than letting it run.
+
+   Tracking is looser than .h-display's -0.045em because capitals need more
+   room than lowercase; at -0.02em the counters stay open at 54px. */
+.h-statement {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    line-height: 1.0;
+    font-size: clamp(30px, 3.6vw, 54px);
+    color: var(--ink);
+    margin: 0;
+}
+.h-statement-hero {
+    font-size: clamp(38px, 5.2vw, 78px);
+    line-height: 0.95;
+}
+.h-statement-dark { color: var(--text-on-dark); }
+
+@layer base {
+    [data-debug-wrapper="true"] { display: contents !important; }
+}
+
+/* ============================================================================
+   ECOSYSTEM CARDS
+
+   The hover-reveal row: hovering one card steps the other two back — dimmed,
+   slightly blurred, slightly shrunk — while the hovered one returns to full
+   and comes forward. Nothing else. This is the supplied HoverRevealCards
+   behaviour and it is the only motion on this row.
+
+   A second, pulsing hover treatment was tried here and removed at the user's
+   direction. One hover effect on this row, and it is the one above.
+
+   The reduced-motion block at the foot drops the scale and the blur, so the
+   row still answers the pointer for a reader who has asked for less motion —
+   it just answers by dimming rather than by moving.
+   ============================================================================ */
+
+.eco-card {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    text-decoration: none;
+    background: var(--night-2);
+    border: 1px solid var(--night-line);
+    transition:
+        opacity 0.5s var(--vk-ease),
+        filter 0.5s var(--vk-ease),
+        transform 0.5s var(--vk-ease),
+        border-color 0.5s var(--vk-ease);
+}
+
+/* Any card, while any sibling in the row is hovered: step back. Driven from
+   the container so a card does not have to know about its neighbours. */
+.eco-row:hover .eco-card,
+.eco-row:focus-within .eco-card {
+    opacity: 0.5;
+    filter: brightness(0.5) blur(2px);
+    transform: scale(0.97);
+}
+
+/* The one actually under the pointer: override the rule above. */
+.eco-row:hover .eco-card:hover,
+.eco-row .eco-card:focus-visible {
+    opacity: 1;
+    filter: none;
+    transform: scale(1.04);
+    border-color: var(--night-line-strong);
+    /* It scales past its grid cell. Without a raised stacking order it grows
+       UNDERNEATH its neighbours and reads as clipped rather than lifted. */
+    z-index: 1;
+}
+
+/* The plate under the caption. The photographs are field scenes with bright
+   sky in them, so the type cannot rely on the image being dark where the text
+   lands — the gradient is what guarantees the contrast, not the picture. */
+/*
+   The card's link line, on the bottom edge.
+
+   BODY TEXT, NOT A LABEL. It carried .meta — JetBrains Mono, uppercase, 0.18em
+   tracking — which is the site's register for kickers and nav items. On a photo
+   card that made a four-word link nearly as wide as the product name above it,
+   so the eye had two things of similar weight to choose between and no reason
+   to prefer the name. Manrope at 12px, no tracking, sentence case: it reads as
+   a link, which is what it is.
+
+   The size drop is larger than it looks. 12px mono at 0.18em is about 40%
+   wider than the same string at 12px Manrope with normal tracking, before the
+   uppercase forms are taken into account — so most of the reduction came from
+   the register rather than from the number.
+
+   IT SITS IN THE DARKEST PART OF THE CARD. .eco-scrim below runs to 0.92 alpha
+   at the bottom edge and 0.55 at the middle, so moving this line down from the
+   centre took it onto a considerably darker ground. Worth knowing if the scrim
+   is ever lightened: this is the text that would fail first.
+*/
+.eco-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    font-family: var(--font-sans);
+    font-size: clamp(11.5px, 0.85vw, 13px);
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.2;
+    color: var(--text-on-dark);
+}
+
+.eco-scrim {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(to top, rgba(18, 18, 18, 0.92) 0%, rgba(18, 18, 18, 0.55) 45%, rgba(18, 18, 18, 0.35) 100%);
+}
+
+.eco-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* A product render rather than a photograph: the whole device, in frame.
+
+   The two hardware plates are devices on a TRANSPARENT ground — there is no
+   background in the file for a cover crop to eat, so a crop takes the corners
+   off the hardware itself. Contained, the card's own --night-2 shows through
+   around the device, which is what the transparency is for.
+
+   The padding keeps the device off the card's border, and object-position sits
+   it low in the frame so the name set over the card clears the top of it
+   rather than landing across the screen. */
+.eco-img--contain {
+    object-fit: contain;
+    object-position: 50% 74%;
+    padding: clamp(16px, 1.6vw, 26px) clamp(20px, 2vw, 34px) clamp(38px, 3.4vw, 54px);
+}
+
+/* Contained renders need the bottom edge darkened for the link line and
+   nothing more — the card behind them is already --night-2. The full scrim
+   would only grey the device down. */
+.eco-scrim--soft {
+    background:
+        linear-gradient(to top, rgba(18, 18, 18, 0.88) 0%, rgba(18, 18, 18, 0.30) 38%, rgba(18, 18, 18, 0) 68%);
+}
+
+/* Reduced motion: the row still answers the pointer, by dimming only. No
+   scale, no blur. */
+@media (prefers-reduced-motion: reduce) {
+    .eco-card { transition: opacity 0.5s var(--vk-ease), border-color 0.5s var(--vk-ease); }
+    .eco-row:hover .eco-card,
+    .eco-row:focus-within .eco-card {
+        filter: brightness(0.5);
+        transform: none;
+    }
+    .eco-row:hover .eco-card:hover,
+    .eco-row .eco-card:focus-visible { transform: none; }
+}
+
+/* ============================================================================
+   .copy-prose — THE SITE'S BODY SETTING
+
+   Matched to a supplied reference: proportional sans at normal tracking, set
+   larger and darker than the site's default body copy.
+
+   THE BRIEF SAID "MONOSPACE, WIDE LETTER-SPACING". THE REFERENCE DID NOT.
+   The image is a proportional face — the two l's in "battlefield" are narrow
+   where the m in "electromagnetic" is wide, which cannot happen in JetBrains
+   Mono, Space Mono or Courier — and its tracking is default, not opened up.
+   The image was taken as the specification. The industrial, letterspaced mono
+   the brief described is already in this stylesheet as .eyebrow / .meta and is
+   still what every kicker on the site uses; it is simply not what this
+   paragraph is.
+
+   THREE DELTAS FROM .copy-body, and nothing else:
+
+     size    14.5-15.5px -> 16-19px. The reference sets at about 19px, and at
+             the shared body size these paragraphs read as captions to the
+             headings above them rather than as the argument.
+     leading 1.7 -> 1.55, per the reference. Tighter leading at a larger size
+             holds the paragraph together as a block.
+     colour  --stone-600 -> --stone-800. The reference is near-black on a warm
+             light ground; --stone-600 is the muted grey this site uses for
+             supporting copy and was a step too quiet for it.
+
+   The floor is 16px rather than 19px flat because the heading above these
+   paragraphs bottoms out at 21px. Held at 19 throughout, the two would sit two
+   points apart on a small screen and the hierarchy would collapse.
+
+   Letter-spacing is deliberately NOT declared. The reference is at the face's
+   default, and Inter's default is what an undeclared value gives.
+
+   NO LONGER SCOPED TO ONE SECTION. It began life as .why-body on the Home
+   page; it is the approved setting for supporting prose and is now used
+   wherever that setting is wanted — currently Home's WHY band and the hardware
+   product pages, which were still on .copy-body and therefore reading two
+   points smaller and a shade greyer than the same copy on Home.
+
+   .copy-body (14.5-15.5px / 1.7 / --stone-600) is the OLDER setting and is
+   still on roughly thirty files. Migrating the rest is a deliberate job, not a
+   side effect of another change: it makes body text larger everywhere and will
+   reflow pages that were composed around the smaller size.
+
+   The colour here is a DEFAULT, not a rule. Callers on a dark band pass their
+   own inline colour, which wins over this declaration — every usage on the
+   hardware pages already does.
+   ============================================================================ */
+
+.copy-prose {
+    font-family: var(--font-sans);
+    font-size: clamp(16px, 1.2vw, 19px);
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--stone-800);
+    margin: 0;
+}
+
+/* --- WHY VIKASANA — HEADING AND ITEM TITLES -------------------------------
+   The same correction as .why-body, carried up through the section's other
+   two type registers so the band is one voice rather than a sans paragraph
+   under a Space Grotesk heading.
+
+   FAMILY is the change that matters. Both were --font-display (Space Grotesk);
+   both are now --font-sans (Inter), which is the face in the supplied
+   reference.
+
+   TRACKING is scaled to size rather than copied. The reference is body copy at
+   its face's default, and default is correct AT BODY SIZE — it is what
+   .why-body uses. It is not correct at 72px: every optically-sized text face
+   including Inter is drawn loose at small sizes and wants negative tracking as
+   it grows, which is why .h-display carried -0.045em. These sit between the
+   two, tighter as they get bigger. To force the reference's literal default,
+   set both letter-spacing values to normal — one line each.
+
+   WEIGHT is a judgement call, and the one thing here worth arguing about.
+   .h-display is 700 and the item titles were 600, both tuned to Space Grotesk.
+   Inter is drawn heavier than Space Grotesk at the same nominal weight, so
+   carrying 700 across renders a considerably blacker heading than the one
+   being replaced — and the reference's whole character is a light, even sans.
+   Both are set to 500. If this reads too quiet, 600 restores the old presence
+   without going back to the display face.
+
+   LEADING on the heading goes 1.02 -> 1.08. Space Grotesk's short extenders
+   tolerate 0.92-1.02 on a three-line stack; Inter's are longer and the lines
+   touch at that setting.
+
+   Scoped to this section, for the reason given on .why-body: .h-display and
+   .font-display are used across the whole site.
+   -------------------------------------------------------------------------- */
+
+.why-h2 {
+    /* SENTENCE CASE, by direction. The JSX already reads "Software Defined." —
+       the capitals were a text-transform, and removing it is the whole change.
+       The other three values move with it, because they were set for capitals:
+
+         tracking  -0.02 -> -0.025em. Lowercase has more internal rhythm than a
+                   run of caps and tolerates — and wants — slightly more close.
+         leading   1.05 -> 1.10. Capitals have no descenders; "Mission Ready."
+                   does, and at 1.05 the y clipped toward the line below.
+         size      62 -> 68px ceiling. Lowercase is far narrower than uppercase,
+                   so the cap that fit the caps is leaving room on the table.
+
+       WIDTH CHECK, Inter sentence case. The longest line is "Hardware
+       Enabled." at about 8.43em after tracking — NOT "Software Defined.",
+       which is 7.92em; the wider H, w and b outweigh the extra length. At the
+       68px ceiling that needs 574px against a 640px column at the 1360px
+       container, and at the md breakpoint 4.4vw is 34px needing 285px against
+       a 320px column. Comfortable at both ends and every step between.
+       Re-derive if the wording changes.
+
+       Face and weight are the site standard and are not special here — Inter
+       700, resolved through --font-sans. See docs/TYPOGRAPHY.md. */
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: clamp(30px, 4.4vw, 68px);
+    line-height: 1.10;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0;
+}
+
+.why-title {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: clamp(21px, 1.7vw, 27px);
+    line-height: 1.25;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    margin: 0 0 10px;
+}
+
+/* ============================================================
+   MAP PING
+
+   The expanding ring on the locations map. Driven by CSS rather than by
+   framer-motion, and that is the fix for a console error rather than a
+   preference.
+
+   `r` is an SVG GEOMETRY ATTRIBUTE, not a style property. framer-motion
+   animating it as a keyframe track wrote `undefined` into the attribute
+   whenever the element mounted — the component gates the ring on visibility,
+   so it mounts and unmounts every time the map scrolls into view — and Chrome
+   logged `<circle> attribute r: Expected length, "undefined"` on a production
+   page. Declaring an explicit `initial` did not stop it; framer resolves the
+   track's first value by reading the element, and the read comes back empty
+   for an attribute it does not own.
+
+   CSS animates `r` natively and has nothing to infer. A browser too old to
+   animate the property simply shows the static ring underneath, which is the
+   correct degradation for a decorative pulse.
+
+   scale() is deliberately NOT used: it would scale the 1.2-unit stroke with
+   the shape, and vector-effect measures the stroke in the viewport frame
+   rather than the viewBox's, so at this SVG's slice scale the ring renders
+   visibly thinner than the static circle it expands out of.
+   ============================================================ */
+@keyframes vk-map-ping {
+    from { r: 7; opacity: 0.55; }
+    to   { r: 20; opacity: 0; }
+}
+.vk-map-ping {
+    animation: vk-map-ping 2.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .vk-map-ping { animation: none; opacity: 0.55; }
+}
+
+/* ============================================================================
+   CAREERS HERO — the Mangaluru plate
+
+   A full-bleed photographic hero, built to a supplied composition: the
+   coastline from the air at dusk, graded down to near-monochrome with the sun
+   left warm, and a hard gradient carrying it into black on the left so the
+   headline has a ground rather than a busy picture to sit on.
+
+   THE GRADIENT IS THE LAYOUT. Everything readable lives in the left third,
+   where the wash is at 97% and the plate is effectively black; the picture is
+   legible from about the middle rightward, which is where the rail's small
+   type sits — over the dark ocean and sky, never over the lit city.
+
+   Two things are deliberately NOT baked into the image file. The wash is CSS,
+   so it follows the viewport rather than stretching with the photograph, and
+   the marks are SVG, so they stay one hairline wide at any density. The file
+   carries only the grade, which does not depend on where the element ends up.
+   ============================================================================ */
+
+.ch-hero {
+    position: relative;
+    overflow: hidden;
+    background: var(--ink);
+    /* Tall enough to read as a plate, capped so it does not become a scroll
+       tax on a short laptop screen. The floor is what the left column needs:
+       eyebrow, four headline lines, lead and buttons. */
+    min-height: min(92vh, 880px);
+    display: flex;
+    align-items: stretch;
+}
+
+.ch-hero__bg,
+.ch-hero__bg img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+.ch-hero__bg img {
+    object-fit: cover;
+    /* Right-anchored: the city, the estuary and the sun are all in the right
+       half, and they are the half the crop must not lose. */
+    object-position: 68% 50%;
+}
+
+/* The wash. Solid ink under the copy, clearing to almost nothing over the
+   picture, with a short return at the far edge so the rail's type has
+   something to sit on. The vertical pass darkens the top for the fixed header
+   and the bottom for the strap line. */
+.ch-hero__wash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(to bottom, rgba(18, 18, 18, 0.72) 0%, rgba(18, 18, 18, 0) 22%, rgba(18, 18, 18, 0) 64%, rgba(18, 18, 18, 0.78) 100%),
+        linear-gradient(to right,
+            var(--ink) 0%,
+            rgba(18, 18, 18, 0.97) 21%,
+            rgba(18, 18, 18, 0.74) 34%,
+            rgba(18, 18, 18, 0.24) 52%,
+            rgba(18, 18, 18, 0.10) 68%,
+            rgba(18, 18, 18, 0.30) 84%,
+            rgba(18, 18, 18, 0.62) 100%);
+}
+
+/* Registration marks: brackets, ticks and one crosshair, drawn at 1px in a
+   single SVG so they scale without thickening. Decoration, so they are hidden
+   from assistive technology and drawn faint enough to read as a print
+   artefact rather than as a control. */
+.ch-hero__marks {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+}
+.ch-hero__marks svg { width: 100%; height: 100%; display: block; }
+
+.ch-hero__inner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    padding-top: clamp(112px, 14vh, 168px);
+    padding-bottom: clamp(88px, 12vh, 132px);
+}
+@media (min-width: 1000px) {
+    .ch-hero__inner {
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: clamp(40px, 6vw, 110px);
+        align-items: center;
+    }
+}
+
+.ch-hero__main { max-width: 34rem; }
+
+/* The eyebrow. The slashes carry the accent and the word does not — at 12px on
+   ink the word needs 4.5:1 and the accent is for the mark, which is not text
+   anyone has to read. */
+.ch-hero__eyebrow { color: var(--text-on-dark-2); }
+.ch-hero__eyebrow span { color: var(--amber); margin-right: 0.7em; }
+
+.ch-hero__title {
+    margin: clamp(18px, 2vw, 26px) 0 0;
+    font-size: clamp(38px, 4.4vw, 68px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+    color: var(--text-on-dark);
+}
+.ch-hero__title span { color: var(--amber); }
+
+.ch-hero__lead {
+    margin: clamp(20px, 2.2vw, 30px) 0 0;
+    max-width: 30rem;
+    color: var(--text-on-dark-2);
+}
+
+.ch-hero__cta { margin-top: clamp(26px, 3vw, 40px); }
+
+/* ---- The rail -------------------------------------------------------------
+   Three small blocks against the right edge: position, the four words the
+   plate is about, and the strap. Right-aligned, mono, and each opened by a
+   short amber rule so they read as one family rather than as three strays.
+
+   Below 1000px there is no empty right half to put them in — the picture is
+   behind the copy rather than beside it — so the rail is dropped. It is
+   decoration for a composition that no longer exists at that width, and
+   squeezing it under the buttons would make it look like content. */
+.ch-hero__rail {
+    display: none;
+    text-align: right;
+    align-self: stretch;
+    flex-direction: column;
+    padding-block: clamp(4px, 1vh, 16px);
+}
+@media (min-width: 1000px) { .ch-hero__rail { display: flex; } }
+
+/* The two upper blocks sit together in the top third and the strap is pushed
+   to the foot. Distributing all three evenly (space-between) put the four
+   words across the middle of the frame, which is exactly where the lit city
+   and the estuary are — small mono type over the brightest part of the
+   photograph. The sky above it is the one large dark area on that side. */
+.ch-hero__rail > :nth-child(2) { margin-top: clamp(30px, 5vh, 58px); }
+.ch-hero__rail > :last-child { margin-top: auto; }
+
+.ch-hero__tick {
+    display: block;
+    width: 34px;
+    height: 1px;
+    margin: 0 0 14px auto;
+    background: var(--amber);
+}
+.ch-hero__coords { color: var(--text-on-dark-2); line-height: 1.9; }
+.ch-hero__words { color: var(--text-on-dark-2); line-height: 2.05; }
+.ch-hero__strap { color: var(--text-on-dark-2); line-height: 1.9; }
+
+/* ---- The strap line at the foot ------------------------------------------ */
+.ch-hero__foot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: clamp(26px, 4vh, 48px);
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    color: var(--text-on-dark-3);
+}
+.ch-hero__foot i {
+    display: block;
+    width: clamp(28px, 3vw, 44px);
+    height: 1px;
+    background: var(--amber);
+    flex-shrink: 0;
+}
+.ch-hero__foot b { font-weight: inherit; color: var(--amber); }
+
+/* On a phone the plate stacks: the picture sits behind a much heavier wash and
+   the copy runs the full width over it. The horizontal gradient is replaced by
+   a vertical one, because there is no left third left to protect. */
+@media (max-width: 999px) {
+    .ch-hero { min-height: 0; }
+    .ch-hero__bg img { object-position: 60% 50%; }
+    .ch-hero__wash {
+        background:
+            linear-gradient(to bottom,
+                rgba(18, 18, 18, 0.88) 0%,
+                rgba(18, 18, 18, 0.80) 42%,
+                rgba(18, 18, 18, 0.92) 78%,
+                var(--ink) 100%);
+    }
+    .ch-hero__marks { display: none; }
+    .ch-hero__inner { padding-bottom: clamp(96px, 16vh, 140px); }
+}

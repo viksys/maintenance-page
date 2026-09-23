@@ -1,0 +1,194 @@
+# Verification gate for vikasanasystems.tech
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# On 3 September 2026 an audit found that a clean clone of this repository could
+# not deploy. Two independent defects, each fatal on its own:
+#
+#   1. An unused function declaration produced an ESLint warning. react-scripts
+#      rejects a build when CI is set and any warning survives filtering, and
+#      Vercel sets CI=1. `npm run lint` catches that in two seconds.
+#   2. frontend/.env carried INLINE_RUNTIME_CHUNK=false and was excluded from
+#      version control by the root .gitignore's `*.env`. Without it the webpack
+#      runtime is inlined into index.html and blocked by our own
+#      `script-src 'self'`, so the site serves a blank page.
+#      `npm run check:artifact` catches that.
+#
+# Both were caught by scripts that already existed in the repository. Nothing
+# ran them. That is the defect this file fixes.
+#
+# The second defect has since been fixed at its source as well: the root
+# .gitignore now carries an explicit `!frontend/.env` negation, so the file is
+# tracked and a clean clone builds. `check:artifact` remains the proof, because
+# it inspects the built output rather than the configuration that was supposed
+# to produce it.
+#
+# Every job below must pass before a pull request can merge. Configure branch
+# protection on `main` to require them — a pipeline that can be bypassed is
+# documentation, not a gate.
+
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A second push to the same branch cancels the first. A queue of superseded
+# runs costs minutes and tells you nothing.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+# No token scope by default. Each job re-grants only what it needs, so a job
+# added to this file later starts from nothing rather than from whatever the
+# previous author happened to leave open.
+permissions: {}
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  verify:
+    name: lint · tests · links · build · artefact · smoke · contrast
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Read the source, and nothing else. This workflow publishes nothing,
+    # comments on nothing, and writes to no branch.
+    permissions:
+      contents: read
+
+    env:
+      # The same two variables vercel.json sets under build.env. Declared here
+      # as well, deliberately: if CI and the platform disagree about the build
+      # environment, CI is testing something that will never ship. Keep the two
+      # lists identical.
+      INLINE_RUNTIME_CHUNK: "false"
+      GENERATE_SOURCEMAP: "false"
+
+    steps:
+      # Third-party actions are pinned to a commit SHA, not a tag. A tag is a
+      # mutable pointer: whoever controls that repository can move v4 to new
+      # code and it executes here, with this workflow's token, on the next run.
+      # A SHA cannot be moved. The trailing comment records which release the
+      # SHA is, because the SHA alone tells a reader nothing about how stale the
+      # pin has become.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Fails a pull request that introduces a dependency with a known
+      # vulnerability, at the same severity floor as the npm audit gates below.
+      # Scoped to runtime, because that is the tree a visitor executes; the full
+      # tree is gated separately and is also at zero. This catches the change as
+      # it arrives rather than at the next audit run, after it has merged.
+      #
+      # Pull requests only: the action compares the head of the pull request
+      # against its base, and a push to main has no base to compare against.
+      - name: Dependency review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: low
+          fail-on-scopes: runtime
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `npm ci` and not `npm install`: it installs exactly the lockfile and
+      # fails if package.json and the lock have drifted, which is itself a check
+      # worth having.
+      - name: Install
+        run: npm ci
+
+      # Warnings are errors. The build enforces this too (CI=1 on the runner),
+      # but running it first gives a two-second answer instead of a four-minute
+      # one.
+      - name: Lint
+        run: npm run lint
+
+      # The unit suite. `--watchAll=false` is passed explicitly rather than
+      # relying on the runner's CI variable, so the command behaves identically
+      # when a developer runs it locally — react-scripts' test runner watches by
+      # default outside CI, and a watching process on a runner is a hung job.
+      - name: Unit tests
+        run: npm test -- --watchAll=false
+
+      # Source-level: every internal link resolves to a declared route, every
+      # asset reference exists, sitemap.xml is neither short nor stale.
+      - name: Links and assets
+        run: npm run links
+
+      # The DRISHTIKON page's copy rules.
+      - name: Copy rules
+        run: npm run copy
+
+      # Every page renders without throwing, before anything expensive runs.
+      - name: Render check
+        run: npm run render
+
+      - name: Build with SEO artefacts
+        run: npm run build:seo
+
+      # `npm run build:seo` regenerates frontend/public/sitemap.xml from the
+      # route table, in place, over a tracked file. If that write changes
+      # anything, the committed sitemap did not describe the routes the site
+      # actually has — which is how a live, linked route came to be missing from
+      # the sitemap once already. `--untracked-files=no` deliberately: this step
+      # asks whether the build MODIFIED something that is under version
+      # control, not whether it produced new files — build output is meant to be
+      # new, and it is gitignored anyway.
+      #
+      # The fix is never to relax this step: re-run `npm run sitemap` locally
+      # and commit the result.
+      - name: No drift in tracked artefacts
+        run: |
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "::error::build:seo modified tracked files. Run 'npm run sitemap' locally and commit the result."
+            git status --porcelain --untracked-files=no
+            git --no-pager diff
+            exit 1
+          fi
+
+      # Facts about the built output that no amount of reading the source can
+      # establish: no executable inline script, no source maps, no duplicate
+      # titles, no inherited hero preload.
+      - name: Artefact checks
+        run: npm run check:artifact
+
+      # Loads the real production bundle per route in jsdom.
+      - name: Route smoke test
+        run: npm run smoke
+
+      # Measures every heading against the background the browser actually
+      # resolves behind it.
+      - name: Heading contrast
+        run: npm run contrast
+
+      # A hard gate. The tree that ships to visitors must report zero
+      # vulnerabilities at every severity. Kept as a separate step from the
+      # full-tree gate below even though both are now at zero, because they fail
+      # for different reasons and a reader needs to know which tree broke: this
+      # one is what visitors execute. Do not raise --audit-level to get a
+      # release out.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=low
+
+      # The full tree, build chain included. A HARD GATE as of this pass.
+      #
+      # This step used to end in "|| true", because the build chain carried 133
+      # advisories that were believed unclearable from inside Create React App.
+      # They were clearable: the overrides block was holding nanoid BELOW the
+      # floor its own consumer (postcss) declares, and roughly a hundred of the
+      # highs cascaded from that one line. The tree now audits clean at every
+      # severity, so there is nothing left for this step to tolerate — and a
+      # step that tolerates everything reports nothing.
+      #
+      # If this fails, raise the pin in the overrides block. Do not reinstate
+      # "|| true".
+      - name: Audit full tree
+        run: npm audit --audit-level=low

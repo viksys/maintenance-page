@@ -1,0 +1,104 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# IDE and editors
+.idea/
+.vscode/
+
+# Dependencies
+node_modules/
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Testing
+/coverage
+
+# Production builds
+/build
+dist/
+dist
+
+# Logs and debug files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Editor files
+*.swp
+*.swo
+*~
+*.sublime-workspace
+
+# Temp / cache directories
+.temp/
+.tmp/
+tmp/
+cache/
+.cache/
+
+# Local Cowork/Claude settings (machine-specific, not for repo)
+.claude/settings.local.json
+
+# Log files (general)
+*.log
+logs/
+
+# Deployment
+.vercel
+
+# Archive files and large assets
+**/*.zip
+**/*.tar.gz
+**/*.tar
+**/*.tgz
+*.pack
+*.deb
+*.dylib
+
+# Secrets and credentials
+#
+# Broad by design: an environment file that reaches a public repository cannot
+# be un-published, so the default is to exclude every shape of one and to name
+# the exceptions explicitly below.
+.env
+.env.*
+*.env
+*token.json*
+*credentials.json*
+credentials.json
+.credentials
+*.key
+*.pem
+memory/test_credentials.md
+
+# frontend/.env is NOT a secret and MUST stay in version control.
+#
+# It carries three build-time flags, none of them credentials. One of them is
+# load-bearing: without INLINE_RUNTIME_CHUNK=false, Create React App inlines the
+# webpack runtime as an inline <script>, our own `script-src 'self'` blocks it,
+# and the site serves a blank page to every visitor. That failure has already
+# happened once on this project, for exactly this reason — `*.env` above swept
+# the file out of a clean clone, and the clone could not deploy.
+#
+# The negation must stay AFTER the patterns above; git honours the last rule
+# that matches. frontend/.env.local and every other frontend/.env.* remain
+# ignored, which is where a local override with anything sensitive belongs.
+!frontend/.env
+
+# Local Cowork safety snapshots (not for repo)
+_backups/
