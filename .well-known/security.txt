@@ -1,0 +1,13 @@
+# Security contact for vikasanasystems.tech
+# VIKASANA Systems Private Limited, Mangaluru, Karnataka, India
+#
+# RFC 9116. The human-readable policy this file points at is /security-policy;
+# both must be updated together. Expires is a required field and a stale value
+# is worse than none — it tells a researcher the contact is unmaintained.
+
+Contact: mailto:info@vikasanasystems.tech
+Contact: https://vikasanasystems.tech/security-policy
+Expires: 2027-09-03T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://vikasanasystems.tech/.well-known/security.txt
+Policy: https://vikasanasystems.tech/security-policy
