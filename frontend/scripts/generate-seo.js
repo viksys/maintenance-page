@@ -77,6 +77,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { HIDDEN_ROUTES } = require('./hidden-routes');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'src');
@@ -320,7 +321,13 @@ function sitemapRoutes() {
   ];
 
   const seen = new Set();
-  return all.filter((u) => (seen.has(u.route) ? false : seen.add(u.route)));
+  return all
+    /* Unlisted pages are served and prerendered, but not published. Listing a
+       URL in a sitemap while its own <Seo noindex> asks robots to skip it is a
+       contradiction crawlers resolve by fetching it anyway. See
+       scripts/hidden-routes.js. */
+    .filter((u) => !HIDDEN_ROUTES.has(u.route))
+    .filter((u) => (seen.has(u.route) ? false : seen.add(u.route)));
 }
 
 /*
@@ -584,12 +591,37 @@ function writePrerender() {
     const description = esc(t.description || SITE.description);
     const image = t.image ? absoluteUrl(t.image) : '';
 
+    /*
+      An unlisted route must be noindex IN THE SHELL, not only at runtime.
+      <Seo noindex> runs in the bundle, so a crawler that does not execute
+      JavaScript — which is the audience robots.txt invites by name — would read
+      this file's 'index, follow' and index the page. Keeping it out of the
+      sitemap is not enough on its own: a sitemap is a hint, and a URL that has
+      been shared by link gets crawled regardless.
+    */
+    const hidden = HIDDEN_ROUTES.has(t.route);
+
     let html = stripHeroPreload(shell);
     html = setTitleTag(html, title);
     html = setMetaTag(html, 'name', 'description', description);
-    html = setLinkTag(html, 'canonical', url);
-    html = setRobots(html, 'index, follow, max-image-preview:large, max-snippet:-1');
-    html = setMetaTag(html, 'property', 'og:url', url);
+    /*
+      No canonical on a page declaring itself noindex — the same rule
+      src/components/Seo.js follows, for the same reason: a canonical is a
+      request to index this URL rather than another one.
+
+      DROPPED, not skipped. The built shell already carries the homepage's
+      canonical, so merely not overwriting it would leave this page pointing at
+      '/' — which invites a crawler to index the homepage in its place, and is
+      worse than the self-canonical it replaced.
+    */
+    html = hidden ? dropCanonical(html) : setLinkTag(html, 'canonical', url);
+    /* og:url likewise: the shell's homepage value would misname this page. */
+    if (hidden) html = html.replace(/<meta\b[^>]*\bproperty=["']og:url["'][^>]*>/gi, '');
+    html = setRobots(
+      html,
+      hidden ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1'
+    );
+    if (!hidden) html = setMetaTag(html, 'property', 'og:url', url);
     html = setMetaTag(html, 'property', 'og:title', title);
     html = setMetaTag(html, 'property', 'og:description', description);
     html = setMetaTag(html, 'property', 'og:type', t.type === 'article' ? 'article' : 'website');

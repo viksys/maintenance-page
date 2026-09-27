@@ -67,6 +67,13 @@ const SecurityPolicy = lazyRoute(() => import('@/pages/SecurityPolicy'));
 const TermsOfUse = lazyRoute(() => import('@/pages/TermsOfUse'));
 const SiteMap = lazyRoute(() => import('@/pages/SiteMap'));
 const Knowledge = lazyRoute(() => import('@/pages/Knowledge'));
+
+/* Unlisted. Reachable only by direct link — nothing in the header, the footer
+   or /site-map points at it, it is excluded from sitemap.xml via
+   scripts/hidden-routes.js, and the page itself sets <Seo noindex>. It is still
+   prerendered, so the link answers 200 rather than falling through to 404.html.
+   Unlisted is not private; see the note in scripts/hidden-routes.js. */
+const MeetScheduler = lazyRoute(() => import('@/pages/MeetScheduler'));
 const NotFound = lazyRoute(() => import('@/pages/NotFound'));
 const VikasanaControl = lazyRoute(() => import('@/pages/VikasanaControl'));
 const VikasanaEdge = lazyRoute(() => import('@/pages/VikasanaEdge'));
@@ -234,6 +241,7 @@ function App() {
               <Route path="/terms-of-use" element={<TermsOfUse />} />
               <Route path="/site-map" element={<SiteMap />} />
               <Route path="/knowledge" element={<Knowledge />} />
+              <Route path="/meet-scheduler" element={<MeetScheduler />} />
               {/* Explicit not-found page. This route previously rendered <Home />,
               which returned the homepage at HTTP 200 for every mistyped or stale
               URL and invited crawlers to index them as real, canonical pages. */}

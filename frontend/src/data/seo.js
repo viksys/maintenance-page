@@ -94,6 +94,23 @@ const suffix = (t) => (t ? `${t} | VIKASANA Systems` : 'VIKASANA Systems');
     website | organization | product | service | article | collection | faq | legal
 */
 export const ROUTES = {
+  /*
+    Unlisted. Present here so the prerendered shell gets its own <title> and
+    description rather than falling back to the site name — check-artifact
+    requires every shell to have a distinct title, and a shell sharing the site
+    name would collide with another.
+
+    Being in ROUTES does NOT publish it: sitemapRoutes() in
+    scripts/generate-seo.js filters everything named in scripts/hidden-routes.js,
+    and the shell is written noindex with no canonical.
+  */
+  '/meet-scheduler': {
+    title: 'Schedule a Call',
+    description: 'Pick a time for a short introductory call with VIKASANA Systems.',
+    type: 'website',
+    priority: 0.1,
+  },
+
   '/': {
     title: 'Mission Systems for Autonomous Defence',
     description:

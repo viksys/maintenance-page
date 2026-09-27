@@ -36,6 +36,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { HIDDEN_ROUTES } = require('./hidden-routes');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'src');
@@ -356,7 +357,20 @@ if (fs.existsSync(sitemapPath)) {
   }
   for (const route of VALID) {
     const clean = route.replace(/\/$/, '') || '/';
+    /* A hidden route is absent from the sitemap on purpose, so its absence is
+       not a finding. It stays in VALID, so an internal link to it — should one
+       ever be added — is still checked against a real route. */
+    if (HIDDEN_ROUTES.has(clean)) continue;
     if (!listed.has(clean)) problems.push(`NOT IN SITEMAP   ${route}`);
+  }
+
+  /* The inverse, and the reason this is not just a skipped check: a hidden route
+     that LEAKS into the sitemap is the failure that matters, and nothing else
+     would notice it. */
+  for (const route of HIDDEN_ROUTES) {
+    if (listed.has(route.replace(/\/$/, '') || '/')) {
+      problems.push(`HIDDEN IN SITEMAP ${route}  (unlisted page published — see scripts/hidden-routes.js)`);
+    }
   }
 } else {
   problems.push('MISSING          public/sitemap.xml — run `npm run sitemap`');

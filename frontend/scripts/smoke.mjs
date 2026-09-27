@@ -22,6 +22,12 @@ import { JSDOM, ResourceLoader } from 'jsdom';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+/* hidden-routes.js is CommonJS and shared with check-links.js and
+   generate-seo.js, which are both CJS. createRequire is how this ESM file reads
+   it without keeping a second copy of the list. */
+import { createRequire } from 'module';
+
+const { HIDDEN_ROUTES } = createRequire(import.meta.url)('./hidden-routes');
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -254,7 +260,14 @@ for (const route of [...routes].sort()) {
     errors.push(`unexpectedly redirected to ${landed}`);
   }
   if (invalid && !/noindex/.test(robots)) errors.push('invalid URL is not noindex — soft 404');
-  if (!invalid && /noindex/.test(robots)) errors.push('valid route is marked noindex');
+  /* A hidden route is noindex on purpose, and the inverse is the real defect —
+     so it is asserted rather than skipped. See scripts/hidden-routes.js. */
+  if (!invalid && HIDDEN_ROUTES.has(route) && !/noindex/.test(robots)) {
+    errors.push('hidden route is NOT noindex — an unlisted page is indexable');
+  }
+  if (!invalid && !HIDDEN_ROUTES.has(route) && /noindex/.test(robots)) {
+    errors.push('valid route is marked noindex');
+  }
 
   if (errors.length) problems.push({ route, errors });
   else pass += 1;
