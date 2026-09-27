@@ -10,32 +10,65 @@
  * ever sees the URL it is deployed at.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * DEPLOYING IT — five steps, once
+ * IT NEEDS NO ADVANCED SERVICE
  * ─────────────────────────────────────────────────────────────────────────────
  *
- *  1. Go to https://script.google.com and create a new project. Paste this
- *     file over the contents of Code.gs.
+ * An earlier version of this file used the "Google Calendar API" advanced
+ * service (Services → +). That menu is not always available — a Workspace admin
+ * can disable it, and it is absent from some editor states — so this version
+ * calls the Calendar REST API over UrlFetchApp instead, authorising with the
+ * script's own OAuth token from ScriptApp.getOAuthToken().
  *
- *  2. Services (＋, left sidebar) → add "Google Calendar API" → identifier
- *     `Calendar`. THIS IS NOT OPTIONAL. CalendarApp, the simple service, cannot
- *     attach a Meet conference to an event; only the advanced service can, and
- *     a booking without a Meet link is not a booking.
+ * The capability is identical. What makes a Meet link possible is the
+ * conferenceDataVersion=1 query parameter, not the advanced service; the simple
+ * CalendarApp service cannot attach a conference either way, which is why
+ * neither version uses it.
  *
- *  3. Deploy → New deployment → type "Web app".
- *          Execute as:        Me
- *          Who has access:    Anyone
+ * ─────────────────────────────────────────────────────────────────────────────
+ * DEPLOYING IT
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ *  1. https://script.google.com → New project. Paste this file over Code.gs.
+ *
+ *  2. Declare the scopes. UrlFetchApp gives Apps Script no way to infer that
+ *     this script needs calendar access, so it must be stated or the token
+ *     comes back without it and every call returns 401.
+ *
+ *     Project Settings (the gear, left sidebar)
+ *       → tick "Show appsscript.json manifest file in editor"
+ *     then open appsscript.json and make it read:
+ *
+ *       {
+ *         "timeZone": "Asia/Kolkata",
+ *         "dependencies": {},
+ *         "exceptionLogging": "STACKDRIVER",
+ *         "runtimeVersion": "V8",
+ *         "oauthScopes": [
+ *           "https://www.googleapis.com/auth/calendar",
+ *           "https://www.googleapis.com/auth/script.external_request"
+ *         ]
+ *       }
+ *
+ *  3. Run once from the editor to authorise: pick `authorise` in the function
+ *     dropdown and press Run. Accept the prompts — the "Google hasn't verified
+ *     this app" screen is expected for your own unpublished script; Advanced →
+ *     Go to … (unsafe). Doing this BEFORE deploying means the web app is
+ *     authorised the first time a visitor uses it rather than failing on them.
+ *
+ *  4. Deploy → New deployment → type "Web app".
+ *         Execute as:      Me
+ *         Who has access:  Anyone
  *     "Anyone" is what lets an unauthenticated visitor book. It does not expose
  *     your calendar: the only thing reachable is doPost below, which refuses
  *     anything that is not one of the slots in SLOTS.
  *
- *  4. Authorise it when prompted. The warning screen is expected for a script
- *     that is not Google-verified — it is your own script.
+ *  5. Copy the /exec URL (it ends in /exec, not /dev) into
+ *     REACT_APP_SCHEDULER_ENDPOINT — see frontend/src/data/scheduler.js.
  *
- *  5. Copy the /exec URL and put it in frontend/src/data/scheduler.js.
- *
- * To change the slots later, edit SLOTS and Deploy → Manage deployments → edit
- * → Version: New version. A new DEPLOYMENT gives a new URL; a new VERSION of the
- * existing deployment keeps it.
+ * Changing the slots later: edit SLOTS, then Deploy → Manage deployments →
+ * edit → Version: New version. A new DEPLOYMENT issues a new URL; a new VERSION
+ * of the existing deployment keeps it. Edit frontend/src/data/scheduler.js to
+ * match, or the page will offer a time this script refuses.
  */
 
 /* ─────────────────────────────────────────────────────────── configuration */
@@ -44,8 +77,8 @@
  * The bookable slots, and the only ones this script will accept.
  *
  * Written with an explicit +05:30 offset rather than as a local time, because
- * "what timezone is the script in" is a setting that can be changed by someone
- * who is not thinking about this file. An offset in the string cannot drift.
+ * "what timezone is the script in" is a setting someone can change without
+ * thinking about this file. An offset in the string cannot drift.
  *
  * India has no daylight saving, so +05:30 is correct year-round.
  */
@@ -59,12 +92,26 @@ var DURATION_MINUTES = 15;
 
 var EVENT_TITLE = 'VIKASANA Systems — introductory call';
 
+var CAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+
+/* ──────────────────────────────────────────────────────── authorisation aid */
+
+/**
+ * Run this once from the editor, before deploying, to trigger the consent
+ * screen. It books nothing — it performs the smallest real Calendar read so
+ * that the scopes are exercised and granted.
+ */
+function authorise() {
+  var probe = listBetween(new Date(), new Date(Date.now() + 60000));
+  Logger.log('Authorised. Calendar reachable, %s event(s) in the next minute.', probe.length);
+}
+
 /* ───────────────────────────────────────────────────────────────── routing */
 
 function doPost(e) {
   try {
     /* The page posts text/plain on purpose. A JSON content type would make the
-       browser send a CORS preflight, and Apps Script has no way to answer an
+       browser send a CORS preflight, and an Apps Script web app cannot answer an
        OPTIONS request — the booking would fail before it arrived. */
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     return json(book(body));
@@ -114,9 +161,9 @@ function book(body) {
 
   /* Serialised against itself. Two people pressing Confirm in the same second
      would otherwise both pass isTaken() and both get the slot; the lock makes
-     the check and the write one operation. 20s covers a slow Calendar call. */
+     the check and the write one operation. 30s covers a slow Calendar call. */
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) {
+  if (!lock.tryLock(30000)) {
     return { ok: false, error: 'busy', message: 'Someone else is booking right now — try again in a moment.' };
   }
 
@@ -134,41 +181,45 @@ function book(body) {
       'Email: ' + email + '\n' +
       (note ? '\nWhat they want to discuss:\n' + note + '\n' : '');
 
-    var event = Calendar.Events.insert(
-      {
-        summary: EVENT_TITLE + ' — ' + name,
-        description: description,
-        start: { dateTime: start.toISOString() },
-        end: { dateTime: end.toISOString() },
-        attendees: [{ email: email }],
-        /* requestId must differ per conference or Google returns the SAME Meet
-           link for two events. Derived from the slot, which is unique and is
-           also what makes a retry of one booking idempotent. */
-        conferenceData: {
-          createRequest: {
-            requestId: 'vikasana-' + slot.replace(/[^0-9]/g, ''),
-            conferenceSolutionKey: { type: 'hangoutsMeet' },
-          },
+    var payload = {
+      summary: EVENT_TITLE + ' — ' + name,
+      description: description,
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() },
+      attendees: [{ email: email }],
+      /* requestId must differ per conference or Google returns the SAME Meet
+         link for two events. Derived from the slot, which is unique and also
+         makes a retry of one booking idempotent. */
+      conferenceData: {
+        createRequest: {
+          requestId: 'vikasana-' + slot.replace(/[^0-9]/g, ''),
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
         },
-        /* Marks the slot busy so isTaken() sees it, and so your own calendar
-           shows it as a real commitment rather than a free-time note. */
-        transparency: 'opaque',
       },
-      'primary',
-      {
-        /* Without conferenceDataVersion:1 the conferenceData above is IGNORED
-           SILENTLY — the event is created with no Meet link and no error. */
-        conferenceDataVersion: 1,
-        sendUpdates: 'all',
-      }
-    );
+      /* Marks the slot busy so isTaken() sees it, and shows on your own calendar
+         as a real commitment rather than a free-time note. */
+      transparency: 'opaque',
+    };
+
+    /* conferenceDataVersion=1 is what creates the Meet link. WITHOUT IT THE
+       conferenceData ABOVE IS IGNORED SILENTLY — the event is created with no
+       link and no error, which is the one failure nobody notices until the
+       meeting starts. sendUpdates=all is what emails the invitation. */
+    var res = fetchJson(CAL + '?conferenceDataVersion=1&sendUpdates=all', {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      console.error('Calendar insert failed: %s %s', res.status, res.text);
+      return { ok: false, error: 'calendar', message: 'The calendar would not accept that booking.' };
+    }
 
     return {
       ok: true,
       slot: slot,
-      meetLink: (event && event.hangoutLink) || '',
-      /* The page tells the visitor to expect an invitation, so it needs to know
-         whether one was actually sent rather than assuming. */
+      meetLink: (res.data && res.data.hangoutLink) || '',
       invited: true,
     };
   } finally {
@@ -186,21 +237,59 @@ function book(body) {
 function isTaken(slot) {
   var start = new Date(slot);
   var end = new Date(start.getTime() + DURATION_MINUTES * 60 * 1000);
+  var items = listBetween(start, end);
 
-  var found = Calendar.Events.list('primary', {
-    timeMin: start.toISOString(),
-    timeMax: end.toISOString(),
-    singleEvents: true,
-    maxResults: 10,
-  });
-
-  var items = (found && found.items) || [];
   for (var i = 0; i < items.length; i++) {
     if (items[i].status === 'cancelled') continue;
     if (items[i].transparency === 'transparent') continue;
     return true;
   }
   return false;
+}
+
+function listBetween(start, end) {
+  var url =
+    CAL +
+    '?timeMin=' + encodeURIComponent(start.toISOString()) +
+    '&timeMax=' + encodeURIComponent(end.toISOString()) +
+    '&singleEvents=true&maxResults=10';
+
+  var res = fetchJson(url, { method: 'get' });
+
+  if (!res.ok) {
+    /* Throw rather than return empty. An unreadable calendar must not be
+       mistaken for a free one — that would double-book the slot. */
+    throw new Error('Calendar read failed: ' + res.status + ' ' + res.text);
+  }
+  return (res.data && res.data.items) || [];
+}
+
+/* ──────────────────────────────────────────────────────────────── transport */
+
+/**
+ * One authorised JSON request. The token comes from the script's own
+ * authorisation, so there is no key to store anywhere.
+ */
+function fetchJson(url, options) {
+  var opts = options || {};
+  opts.headers = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+  /* Without this a 4xx throws, and the thrown message is less useful than the
+     response body Google sends explaining what was wrong with the request. */
+  opts.muteHttpExceptions = true;
+
+  var response = UrlFetchApp.fetch(url, opts);
+  var status = response.getResponseCode();
+  var text = response.getContentText();
+
+  var data = null;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    /* A non-JSON body only ever accompanies an error; status and text below
+       carry everything the caller needs to log. */
+  }
+
+  return { ok: status >= 200 && status < 300, status: status, text: text, data: data };
 }
 
 /* ────────────────────────────────────────────────────────────────── output */
