@@ -37,9 +37,18 @@ import {
 
 const HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
 
-/* An upload has no progress here, so the only thing worse than a slow submit is
-   one that never resolves. */
-const TIMEOUT_MS = 60000;
+/*
+  MEASURED, NOT GUESSED.
+
+  Against the live endpoint, from a fast connection: a 50 KB résumé completes in
+  8s, 1 MB in 15s, 4 MB in 28s. Those are server time plus OUR upload — a
+  candidate on a domestic upstream adds their own, and 5 MB is the ceiling the
+  form allows. The first version used 60s and a real submission hit it.
+
+  Three minutes is not generosity. It is the number that stops the timeout from
+  firing on a submission that is simply still going.
+*/
+const TIMEOUT_MS = 180000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -178,12 +187,24 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
         }
         setResult({ ok: false, message: (data && data.message) || 'That did not send. Please try again.' });
       } catch (err) {
+        /*
+          ABORTING THE REQUEST DOES NOT STOP THE SERVER.
+
+          AbortController cancels the browser's side of the call. The Apps Script
+          has already received the body and runs to completion regardless — so on
+          a timeout the application has very likely been SAVED, and the old copy
+          said "nothing was submitted", which was false and invited the candidate
+          to send it twice.
+
+          Neither message now claims the submission did not happen, because
+          neither can know. They say what to do instead.
+        */
         setResult({
           ok: false,
           message:
             err.name === 'AbortError'
-              ? 'That took too long — nothing was submitted. Try again, or send a smaller file.'
-              : 'We could not reach the server. Nothing was submitted.',
+              ? 'This is taking longer than expected, so we stopped waiting for a reply. Your application may already have reached us — please check with info@vikasanasystems.tech before sending it again, so you do not arrive twice.'
+              : 'We lost the connection before we got a reply. Your application may or may not have reached us — check with info@vikasanasystems.tech before sending it again.',
         });
       } finally {
         clearTimeout(timer);
@@ -404,8 +425,14 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
 
       <div className="flex items-center gap-4" style={{ marginTop: 26 }}>
         <FlowButton type="submit" variant="ink" text={sending ? 'Sending…' : 'Send Application'} />
+        {/* A large résumé can take a minute or more, and silence during it is
+            what makes someone press the button again. */}
         <span aria-live="polite" role="status" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-          {sending ? (file ? 'Uploading…' : 'Sending…') : ''}
+          {sending
+            ? file && file.size > 512 * 1024
+              ? 'Uploading — a large file can take a minute. Please wait.'
+              : 'Sending…'
+            : ''}
         </span>
       </div>
 
