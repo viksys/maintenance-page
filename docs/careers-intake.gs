@@ -72,6 +72,21 @@
  * To move to a different folder or sheet later, edit the property and run
  * setup() again. Files already filed stay where they are.
  *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * UPDATING AN ALREADY-DEPLOYED COPY
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Paste over Code.gs, then BOTH of these, in this order:
+ *
+ *   1. Run `setup` once from the editor and accept the prompt.
+ *      Sending mail is a NEW SCOPE. A script cannot grant itself one, so until
+ *      it is accepted every notification fails with an authorisation error —
+ *      while the application itself still saves, because notify() is wrapped.
+ *      Rows would appear in the Sheet with no email arriving, which looks like
+ *      a mail problem and is not.
+ *
+ *   2. Deploy → Manage deployments → pencil → Version: NEW VERSION.
+ *
  * AFTER ANY EDIT: Deploy → Manage deployments → pencil → Version: NEW VERSION.
  * A deployment serves a frozen snapshot, so saving the editor changes nothing at
  * the /exec URL. This is the step that cost us an hour on the scheduler.
@@ -87,6 +102,16 @@ var SHEET_NAME = 'VIKASANA — Applications';
    the number that matters is this one. Apps Script accepts a far larger payload;
    this is about what is worth storing, not what is possible. */
 var MAX_RESUME_BYTES = 5 * 1024 * 1024;
+
+/*
+  Where the notification goes. The mail is SENT BY the account this script runs
+  as, so it arrives from that address rather than from the applicant — Apps
+  Script cannot send as someone else, and pretending otherwise would fail SPF.
+
+  Reply-To is set to the applicant instead, so hitting reply in the notification
+  answers the candidate directly and nobody copies an address out by hand.
+*/
+var NOTIFY_TO = 'info@vikasanasystems.tech';
 
 /* Extensions accepted. Checked against the filename AND the decoded bytes below
    — a renamed .exe passes an extension test and fails the signature test. */
@@ -232,6 +257,7 @@ function receive(body) {
   var fileUrl = '';
   var fileName = '';
   var sizeKb = '';
+  var resumeBlob = null;
 
   /* Guaranteed present — the check above returns when it is not. */
   var stored = storeResume(body.resume, name);
@@ -239,6 +265,7 @@ function receive(body) {
   fileUrl = stored.url;
   fileName = stored.name;
   sizeKb = stored.sizeKb;
+  resumeBlob = stored.blob;
 
   /* ---- the row ---- */
   var sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
@@ -253,6 +280,30 @@ function receive(body) {
     fileName,
     sizeKb,
   ]);
+
+  /*
+    The notification is best-effort AND MUST NOT FAIL THE APPLICATION.
+
+    By this point the row is in the Sheet and the file is in Drive — the
+    application is safely recorded. If the mail fails (a daily quota is the
+    likely cause: a consumer account gets 100 recipients a day), the candidate
+    must still be told they succeeded, because they did. Throwing here would
+    show them an error for an application we already hold, and they would send
+    it again.
+  */
+  try {
+    notify({
+      name: name,
+      email: email,
+      phone: phone,
+      role: role,
+      message: message,
+      fileUrl: fileUrl,
+      resumeBlob: resumeBlob,
+    });
+  } catch (err) {
+    console.error('Notification failed (the application WAS saved): %s', err && err.message ? err.message : err);
+  }
 
   return { ok: true };
 }
@@ -308,6 +359,9 @@ function storeResume(resume, applicantName) {
     url: file.getUrl(),
     name: name,
     sizeKb: Math.round(bytes.length / 1024),
+    /* Returned so the notification can attach the same bytes without reading
+       them back out of Drive. */
+    blob: blob,
   };
 }
 
@@ -328,6 +382,50 @@ function signatureAgrees(ext, bytes) {
   if (ext === 'doc') return starts([0xd0, 0xcf, 0x11, 0xe0]);
   /* rtf and txt have no reliable signature worth enforcing. */
   return true;
+}
+
+/* ──────────────────────────────────────────────────────────── notification */
+
+/**
+ * Emails the application to NOTIFY_TO with the résumé attached.
+ *
+ * Plain text, not HTML. The body is someone's own words reproduced verbatim,
+ * and building HTML around unescaped input is how a message containing a '<'
+ * arrives mangled — or worse, is interpreted.
+ */
+function notify(a) {
+  var lines = [
+    'A new application was submitted on vikasanasystems.tech/careers.',
+    '',
+    'Name:    ' + a.name,
+    'Email:   ' + a.email,
+    'Phone:   ' + a.phone,
+    'Role:    ' + a.role,
+    '',
+    'MESSAGE',
+    '-------',
+    a.message,
+    '',
+  ];
+
+  if (a.fileUrl) {
+    lines.push('Résumé is attached, and filed in Drive:');
+    lines.push(a.fileUrl);
+  } else {
+    lines.push('No résumé was attached.');
+  }
+
+  lines.push('');
+  lines.push('Reply to this email to answer the applicant directly.');
+
+  var options = {
+    name: 'VIKASANA Careers',
+    /* So that replying reaches the candidate rather than this mailbox. */
+    replyTo: a.email,
+  };
+  if (a.resumeBlob) options.attachments = [a.resumeBlob];
+
+  MailApp.sendEmail(NOTIFY_TO, 'Application — ' + (a.role || 'unspecified role') + ' — ' + a.name, lines.join('\n'), options);
 }
 
 /* ────────────────────────────────────────────────────────────────── output */
