@@ -170,7 +170,49 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
           body: JSON.stringify({ ...values, resume }),
         });
 
-        const data = await res.json().catch(() => null);
+        /*
+          READ AS TEXT, THEN TRY TO PARSE.
+
+          res.json() throws on a body that is not JSON, and the old code turned
+          that into `null` and reported "That did not send" — which is how a
+          submission that HAD been saved, and had already emailed info@, was
+          shown to the applicant as a failure.
+
+          Apps Script answers a POST with a 302 to script.googleusercontent.com
+          and serves the payload from there. Every path our doPost takes returns
+          JSON, so an unparseable 200 is not our script declining — it is the
+          body arriving in a form this page could not read.
+
+          The one shape that IS a real failure and still returns HTTP 200 is
+          Apps Script's own error page, which is HTML naming the exception. That
+          is what the sniff below looks for. Everything else that came back 2xx
+          is treated as sent, because the alternative — telling someone their
+          application failed when it did not — makes them send it twice.
+        */
+        const raw = await res.text().catch(() => '');
+        let data = null;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = null;
+        }
+
+        if (!data && res.ok) {
+          const crashed = /ReferenceError|TypeError|Exception|SyntaxError|is not defined/i.test(raw);
+          if (!crashed) {
+            setResult({ ok: true });
+            setForm({ name: '', email: '', phone: '', role: '', message: '' });
+            setFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+          }
+          setResult({
+            ok: false,
+            message:
+              'Something went wrong at our end. Nothing was saved — please try again, or write to info@vikasanasystems.tech.',
+          });
+          return;
+        }
 
         if (data && data.ok) {
           setResult({ ok: true });

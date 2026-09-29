@@ -9,6 +9,7 @@ import ApplicationForm from '@/components/careers/ApplicationForm';
 import { CAREERS_FORM_READY } from '@/data/careersForm';
 import { CAREERS_FAQ } from '@/data/faqs';
 import { jobs } from '@/data/jobs';
+import { scrollToElement } from '@/lib/smooth-scroll';
 import { FlowButton } from '@/components/ui/flow-button';
 import EnquiryNote, { EnquiryAddress } from '@/components/EnquiryNote';
 import { LIGHT_BAND } from '@/lib/bands';
@@ -109,10 +110,21 @@ export default function Careers() {
   const onApply = useCallback((job) => {
     setSelectedRole(job.title);
 
-    /* After paint: the form may be mounting, and the field cannot be focused
-       before it exists. */
+    /*
+      scrollToElement, NOT el.scrollIntoView.
+
+      This site drives scrolling with Lenis, which owns the scroll position and
+      ignores a native scrollIntoView — so the first version moved nothing. The
+      role was selected and focus did move, but the page stayed where it was,
+      which reads as a button that did nothing and is why it took two clicks.
+      lib/smooth-scroll.js exists for exactly this and falls back to native when
+      Lenis is not running.
+
+      After paint: the form may still be mounting, and a field cannot be focused
+      before it exists.
+    */
     requestAnimationFrame(() => {
-      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollToElement(formRef.current, { offset: -24 });
       document.getElementById('ca-name')?.focus({ preventScroll: true });
     });
   }, []);
