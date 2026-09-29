@@ -5,6 +5,8 @@ import SectionLabel from '@/components/SectionLabel';
 import Reveal from '@/components/Reveal';
 import FAQ from '@/components/FAQ';
 import JobAccordion from '@/components/careers/JobAccordion';
+import ApplicationForm from '@/components/careers/ApplicationForm';
+import { CAREERS_FORM_READY } from '@/data/careersForm';
 import { CAREERS_FAQ } from '@/data/faqs';
 import { jobs } from '@/data/jobs';
 import { FlowButton } from '@/components/ui/flow-button';
@@ -231,6 +233,31 @@ export default function Careers() {
                 </EnquiryNote>
               </div>
             </Reveal>
+
+            {/*
+              THE FORM.
+
+              Under the role list and the unlisted-roles note, not above them: a
+              reader decides whether anything here is for them before they decide
+              to write, and a form met first is a form met by someone who does not
+              yet know what they would be applying for.
+
+              It is additive. Both addresses above still work and are still the
+              only route if the script is unreachable — see CAREERS_FORM_READY,
+              which hides the form entirely rather than showing one that posts
+              nowhere.
+            */}
+            {CAREERS_FORM_READY && (
+              <Reveal>
+                <div className="mt-16">
+                  <h3 className="h-display fs-h3 mb-3">Or apply here.</h3>
+                  <p className="text-[14px] measure mb-8" style={{ color: 'var(--text-tertiary)' }}>
+                    Attach a résumé if you have one to hand. It is not required — what you write matters more.
+                  </p>
+                  <ApplicationForm roles={jobs} />
+                </div>
+              </Reveal>
+            )}
           </div>
         </section>
 

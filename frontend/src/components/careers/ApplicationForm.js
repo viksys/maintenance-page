@@ -1,0 +1,327 @@
+import React, { useCallback, useRef, useState } from 'react';
+import { FlowButton } from '@/components/ui/flow-button';
+import {
+  CAREERS_ENDPOINT,
+  MAX_RESUME_BYTES,
+  ALLOWED_EXT,
+  ACCEPT_ATTR,
+  extensionOf,
+  humanSize,
+  fileToBase64,
+} from '@/data/careersForm';
+
+/*
+  Application form.
+
+  Posts to the Apps Script in docs/careers-intake.gs, which appends a row to a
+  Google Sheet and files the résumé in a Drive folder.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  WHY text/plain FOR A JSON BODY
+  ─────────────────────────────────────────────────────────────────────────────
+
+  A Content-Type of application/json makes the request "non-simple", so the
+  browser sends a CORS preflight OPTIONS first — and an Apps Script web app
+  cannot answer OPTIONS at all. The body is still JSON; only the declared type
+  differs, and doPost parses it explicitly.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  THE FILE GOES AS BASE64 IN THE JSON BODY
+  ─────────────────────────────────────────────────────────────────────────────
+
+  Not multipart. Apps Script's doPost exposes e.postData.contents as a string,
+  and reassembling multipart from it by hand is a parser nobody should write.
+  Base64 costs about a third in size, which is why the ceiling is 5 MB rather
+  than something larger — a 5 MB résumé is already far past what anyone sends.
+*/
+
+const HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
+
+/* An upload has no progress here, so the only thing worse than a slow submit is
+   one that never resolves. */
+const TIMEOUT_MS = 60000;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export default function ApplicationForm({ roles = [] }) {
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: '', message: '' });
+  const [file, setFile] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [sending, setSending] = useState(false);
+  /* null | { ok: true } | { ok: false, message } */
+  const [result, setResult] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const set = (k) => (e) => {
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+    if (errors[k]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[k];
+        return next;
+      });
+    }
+  };
+
+  /* Validated on selection, not on submit. Telling someone their file is too
+     large after they have filled the form in is a worse moment to say it. */
+  const onFile = (e) => {
+    const picked = e.target.files?.[0] || null;
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.resume;
+      return next;
+    });
+
+    if (!picked) {
+      setFile(null);
+      return;
+    }
+    if (!ALLOWED_EXT.includes(extensionOf(picked.name))) {
+      setFile(null);
+      e.target.value = '';
+      setErrors((prev) => ({ ...prev, resume: `Attach a ${ALLOWED_EXT.join(', ')} file.` }));
+      return;
+    }
+    if (picked.size > MAX_RESUME_BYTES) {
+      setFile(null);
+      e.target.value = '';
+      setErrors((prev) => ({
+        ...prev,
+        resume: `That file is ${humanSize(picked.size)}. The limit is ${humanSize(MAX_RESUME_BYTES)}.`,
+      }));
+      return;
+    }
+    setFile(picked);
+  };
+
+  const onSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      if (sending) return;
+
+      const values = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        role: form.role.trim(),
+        message: form.message.trim(),
+      };
+
+      const found = {};
+      if (!values.name) found.name = 'Please give us a name.';
+      if (!values.email) found.email = 'An email address is required — we reply there.';
+      else if (!EMAIL_RE.test(values.email)) found.email = 'That email address does not look right.';
+      if (!values.message) found.message = 'Tell us what you have built and what you want to work on.';
+
+      setErrors((prev) => ({ ...prev, ...found }));
+      if (Object.keys(found).length) {
+        const first = ['name', 'email', 'message'].find((k) => found[k]);
+        document.getElementById(`ca-${first}`)?.focus();
+        return;
+      }
+
+      setSending(true);
+      setResult(null);
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      try {
+        let resume = null;
+        if (file) {
+          resume = { name: file.name, type: file.type || '', data: await fileToBase64(file) };
+        }
+
+        const res = await fetch(CAREERS_ENDPOINT, {
+          method: 'POST',
+          headers: HEADERS,
+          signal: controller.signal,
+          body: JSON.stringify({ ...values, resume }),
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (data && data.ok) {
+          setResult({ ok: true });
+          setForm({ name: '', email: '', phone: '', role: '', message: '' });
+          setFile(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+        }
+
+        /* A field-specific rejection belongs next to that field, not only in the
+           banner — the banner is below the button and may be off screen. */
+        if (data && data.error && ['name', 'email', 'message', 'resume'].includes(data.error)) {
+          setErrors((prev) => ({ ...prev, [data.error]: data.message }));
+        }
+        setResult({ ok: false, message: (data && data.message) || 'That did not send. Please try again.' });
+      } catch (err) {
+        setResult({
+          ok: false,
+          message:
+            err.name === 'AbortError'
+              ? 'That took too long — nothing was submitted. Try again, or send a smaller file.'
+              : 'We could not reach the server. Nothing was submitted.',
+        });
+      } finally {
+        clearTimeout(timer);
+        setSending(false);
+      }
+    },
+    [form, file, sending]
+  );
+
+  if (result?.ok) {
+    return (
+      <div role="status" style={{ maxWidth: 'var(--measure)' }}>
+        <h3 className="h-display fs-h3 mb-4">Application received.</h3>
+        <p className="text-[14px]" style={{ color: 'var(--text-tertiary)' }}>
+          Every one is read by an engineer. If there is a fit we will write to the address you gave us.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} noValidate style={{ maxWidth: 'var(--measure-sm)' }}>
+      <div style={{ display: 'grid', gap: 18 }}>
+        <TextField id="ca-name" label="NAME" required error={errors.name}>
+          <input
+            id="ca-name"
+            className="input"
+            value={form.name}
+            onChange={set('name')}
+            maxLength={120}
+            autoComplete="name"
+            aria-required="true"
+            aria-invalid={errors.name ? 'true' : undefined}
+            aria-describedby={errors.name ? 'ca-name-error' : undefined}
+            placeholder="Your name"
+          />
+        </TextField>
+
+        <TextField id="ca-email" label="EMAIL" required error={errors.email}>
+          <input
+            id="ca-email"
+            type="email"
+            className="input"
+            value={form.email}
+            onChange={set('email')}
+            maxLength={254}
+            autoComplete="email"
+            aria-required="true"
+            aria-invalid={errors.email ? 'true' : undefined}
+            aria-describedby={errors.email ? 'ca-email-error' : undefined}
+            placeholder="you@example.com"
+          />
+        </TextField>
+
+        <TextField id="ca-phone" label="PHONE">
+          <input
+            id="ca-phone"
+            type="tel"
+            className="input"
+            value={form.phone}
+            onChange={set('phone')}
+            maxLength={40}
+            autoComplete="tel"
+            placeholder="Optional"
+          />
+        </TextField>
+
+        <TextField id="ca-role" label="ROLE">
+          <select id="ca-role" className="input" value={form.role} onChange={set('role')}>
+            <option value="">Select a role (optional)</option>
+            {roles.map((r) => (
+              <option key={r.slug} value={r.title}>
+                {r.title}
+              </option>
+            ))}
+            <option value="Unlisted role">No listed role fits</option>
+          </select>
+        </TextField>
+
+        <TextField id="ca-message" label="ABOUT YOU" required error={errors.message}>
+          <textarea
+            id="ca-message"
+            className="input"
+            rows={6}
+            value={form.message}
+            onChange={set('message')}
+            maxLength={5000}
+            aria-required="true"
+            aria-invalid={errors.message ? 'true' : undefined}
+            aria-describedby={errors.message ? 'ca-message-error' : undefined}
+            placeholder="What you have built, and what you want to work on. One page beats ten."
+          />
+        </TextField>
+
+        <div>
+          <label htmlFor="ca-resume" className="meta mb-2" style={{ display: 'block' }}>
+            RÉSUMÉ
+          </label>
+          <input
+            id="ca-resume"
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT_ATTR}
+            onChange={onFile}
+            aria-invalid={errors.resume ? 'true' : undefined}
+            aria-describedby={errors.resume ? 'ca-resume-error' : 'ca-resume-hint'}
+            style={{ fontSize: 13, color: 'var(--text-tertiary)' }}
+          />
+          {errors.resume ? (
+            <div id="ca-resume-error" style={{ fontSize: 12.5, color: 'var(--amber-text)', marginTop: 6 }}>
+              {errors.resume}
+            </div>
+          ) : (
+            <div id="ca-resume-hint" style={{ fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 6 }}>
+              {file
+                ? `${file.name} · ${humanSize(file.size)}`
+                : `PDF, Word, RTF, ODT or text. Up to ${humanSize(MAX_RESUME_BYTES)}. Optional.`}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4" style={{ marginTop: 26 }}>
+        <FlowButton type="submit" variant="ink" text={sending ? 'Sending…' : 'Send Application'} />
+        <span aria-live="polite" role="status" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+          {sending ? (file ? 'Uploading…' : 'Sending…') : ''}
+        </span>
+      </div>
+
+      {/* role="alert": nothing was submitted and their text is still on screen. */}
+      {result && !result.ok && (
+        <div role="alert" style={{ fontSize: 12.5, color: 'var(--amber-text)', marginTop: 16, lineHeight: 1.6 }}>
+          {result.message}
+        </div>
+      )}
+    </form>
+  );
+}
+
+/* Label, control and error wired together. Written here rather than imported
+   because this tree has no shared form primitives — lib/forms.js belongs to the
+   other branch of this project. */
+function TextField({ id, label, required, error, children }) {
+  return (
+    <div>
+      <label htmlFor={id} className="meta mb-2" style={{ display: 'block' }}>
+        {label}{' '}
+        {required && (
+          <span aria-hidden="true" style={{ color: 'var(--amber-text)' }}>
+            *
+          </span>
+        )}
+      </label>
+      {children}
+      {error && (
+        <div id={`${id}-error`} style={{ fontSize: 12.5, color: 'var(--amber-text)', marginTop: 6 }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
