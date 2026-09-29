@@ -291,6 +291,8 @@ function receive(body) {
     show them an error for an application we already hold, and they would send
     it again.
   */
+  var notified = false;
+  var notifyError = '';
   try {
     notify({
       name: name,
@@ -301,11 +303,22 @@ function receive(body) {
       fileUrl: fileUrl,
       resumeBlob: resumeBlob,
     });
+    notified = true;
   } catch (err) {
-    console.error('Notification failed (the application WAS saved): %s', err && err.message ? err.message : err);
+    notifyError = (err && err.message) || String(err);
+    console.error('Notification failed (the application WAS saved): %s', notifyError);
   }
 
-  return { ok: true };
+  /*
+    `notified` is reported so a failed send is a FACT rather than an inference.
+
+    Without it the only symptom of a missing mail scope is an email that does
+    not arrive, which is indistinguishable from one that was sent and filtered,
+    delayed, or looked for in the wrong mailbox — and the difference decides
+    whether anyone needs to do anything. The row lands either way, so nothing
+    here tells the applicant about it: the page keys on `ok` alone.
+  */
+  return { ok: true, notified: notified, notifyError: notifyError };
 }
 
 /**
