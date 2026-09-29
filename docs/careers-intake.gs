@@ -43,6 +43,35 @@
  *
  *  4. Copy the /exec URL into REACT_APP_CAREERS_ENDPOINT.
  *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * USING A FOLDER AND SHEET YOU ALREADY HAVE
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * There is nothing to edit in this file. The ids live in Script Properties, and
+ * setup() writes them there itself — so the normal path is to change nothing.
+ *
+ * To point it at your own instead, BEFORE running setup():
+ *
+ *   Project Settings (the gear, left sidebar)
+ *     → Script Properties → Add script property
+ *
+ *       FOLDER_ID   the folder's id
+ *       SHEET_ID    the spreadsheet's id
+ *
+ * The ids are the noisy part of each URL:
+ *
+ *   https://drive.google.com/drive/folders/1AbC...XyZ
+ *                                          └──── FOLDER_ID ────┘
+ *   https://docs.google.com/spreadsheets/d/1AbC...XyZ/edit#gid=0
+ *                                          └──── SHEET_ID ────┘
+ *
+ * setup() then reuses both rather than creating anything, and adds the header
+ * row to the sheet if it is empty. It REFUSES to touch a sheet whose row 1
+ * already holds something else, rather than overwriting data it did not write.
+ *
+ * To move to a different folder or sheet later, edit the property and run
+ * setup() again. Files already filed stay where they are.
+ *
  * AFTER ANY EDIT: Deploy → Manage deployments → pencil → Version: NEW VERSION.
  * A deployment serves a frozen snapshot, so saving the editor changes nothing at
  * the /exec URL. This is the step that cost us an hour on the scheduler.
@@ -100,18 +129,43 @@ function setup() {
   } else {
     ss = SpreadsheetApp.create(SHEET_NAME);
     props.setProperty('SHEET_ID', ss.getId());
-
-    var sheet = ss.getSheets()[0];
-    sheet.appendRow(HEADERS);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
-    /* The message column is the one anybody actually reads. */
-    sheet.setColumnWidth(6, 420);
   }
+
+  /* Headers are applied whether the Sheet was just created or supplied by hand.
+     They used to be written only on creation, so pointing SHEET_ID at an
+     existing spreadsheet produced a file whose columns nobody could read —
+     appendRow does not care that there is no header, and the first application
+     would have landed as nine unlabelled values. */
+  ensureHeaders(ss.getSheets()[0]);
 
   Logger.log('Folder: %s', folder.getUrl());
   Logger.log('Sheet:  %s', ss.getUrl());
   return { folder: folder.getUrl(), sheet: ss.getUrl() };
+}
+
+/**
+ * Puts the header row in place if it is not already there.
+ *
+ * Only touches a sheet whose first row is empty or already our headers. Anything
+ * else is somebody's data, and overwriting row 1 of a spreadsheet that is in use
+ * is not a thing a setup function should ever do on its own.
+ */
+function ensureHeaders(sheet) {
+  if (sheet.getLastRow() > 0) {
+    var first = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+    if (String(first[0]).trim() === HEADERS[0]) return; /* already ours */
+    throw new Error(
+      'Sheet row 1 already holds other data (' +
+        JSON.stringify(first.slice(0, 3)) +
+        '). Point SHEET_ID at an empty spreadsheet, or clear row 1 first.'
+    );
+  }
+
+  sheet.appendRow(HEADERS);
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
+  /* The message column is the one anybody actually reads. */
+  sheet.setColumnWidth(6, 420);
 }
 
 /* ───────────────────────────────────────────────────────────────── routing */
