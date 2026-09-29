@@ -1,11 +1,15 @@
 /*
   Open roles.
 
-  ONE ROLE. Six engineering positions — software, embedded, robotics, computer
+  TWO ROLES. Six engineering positions — software, embedded, robotics, computer
   vision, electronics and mechanical design — were listed here and removed on
-  23 September 2026, by direction: the company is hiring the intern and nothing
+  23 September 2026, by direction: the company is hiring interns and nothing
   else, and a careers page advertising six roles it will not fill costs more
-  than an empty one.
+  than an empty one. Social Media Intern was added on 29 September 2026.
+
+  Roles need not be shaped alike. Social Media Intern declares no
+  `responsibilities` and no `required` because neither was given, and JobDetails
+  omits an empty section rather than throwing on it.
 
   BASE and the `.map` that merges it are kept rather than folded into the
   single remaining role. They are what makes adding the next role a matter of
@@ -59,20 +63,63 @@ export const jobs = [
       'Write tests and documentation for what you build',
       'Present your work to the team at the end of the internship',
     ],
+    /* The technical list is as supplied on 29 September 2026. The three
+       non-technical lines around it are kept: eligibility and location are
+       conditions of the internship and are not implied by a skills list. */
     required: [
+      'Python',
+      'HTML & CSS',
+      'JavaScript',
+      'React / React.js',
+      'REST APIs and backend development',
+      'Good programming and problem-solving skills',
+      'Git and basic software development practices',
       'Currently pursuing or recently completed a degree in Engineering, Computer Science or a related field',
-      'Demonstrated programming ability in at least one language',
-      'Evidence of something you have built — coursework, personal project, competition, or open source',
       'Able to work from Mangaluru or Bengaluru, or remotely with regular overlap',
       'Curiosity, and comfort saying when you do not know something',
     ],
     preferred: [
-      'Robotics, drones or autonomous systems experience',
-      'Participation in technical competitions or student teams',
-      'Open-source contributions',
-      'Exposure to Linux, ROS, or embedded development',
+      'MAVLink',
+      'Computer networking',
+      'Experience with autonomous systems, drones/UAVs or robotics',
+      'AI/ML and computer vision',
+      'FastAPI or similar backend frameworks',
+      'Cloud platforms and Docker',
       'Interest in defence and indigenous technology',
     ],
-    technologies: ['Python', 'C++', 'ROS2', 'Linux', 'Git', 'Docker'],
+    /* Chips, so the stack is legible before the panel is opened. C++ and ROS2
+       are dropped: neither appears in the supplied lists, and a technology
+       shown here that no requirement mentions invites the wrong applicant. */
+    technologies: ['Python', 'JavaScript', 'React', 'REST APIs', 'FastAPI', 'Git', 'Docker', 'MAVLink', 'Linux'],
+  },
+  {
+    slug: 'social-media-intern',
+    title: 'Social Media Intern',
+    tags: ['INTERNSHIP', 'MANGALURU · BENGALURU · REMOTE'],
+    experience: 'Students and recent graduates',
+    employment: 'Internship, 3–6 months',
+    summary: [
+      'We are looking for candidates who are creative, proactive and interested in building the digital presence of an emerging defence technology startup.',
+    ],
+    /*
+      NO `responsibilities` AND NO `required`.
+
+      Neither was supplied, and JobDetails now omits a section whose list is
+      empty rather than throwing, so the panel shows what is actually known
+      about this role. Writing plausible duties and qualifications to fill the
+      layout would mean advertising conditions nobody has agreed to — a
+      candidate reads them as the job, and they would not be.
+
+      Add them here when they exist; the section returns on its own.
+    */
+    preferred: [
+      'Social media management and content creation',
+      'Content writing and communication',
+      'Basic graphic design and video editing',
+      'Knowledge of platforms such as LinkedIn, Instagram and YouTube',
+      'Digital marketing and branding',
+      'Creative thinking and strong communication skills',
+    ],
+    technologies: ['LinkedIn', 'Instagram', 'YouTube'],
   },
 ].map((role) => ({ ...BASE, ...role }));

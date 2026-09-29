@@ -6,6 +6,11 @@ import React from 'react';
   hairlines, amber accent, display type). No new colours or fonts.
 */
 
+/*
+  `children` here is always a React ELEMENT — <Bullets …> is truthy even when it
+  renders null — so this cannot decide emptiness itself. The call sites test the
+  data instead; see the `?.length` guards below.
+*/
 function Block({ label, children, className = '' }) {
   return (
     <section className={className} style={{ marginBottom: 34 }}>
@@ -15,7 +20,18 @@ function Block({ label, children, className = '' }) {
   );
 }
 
+/*
+  A section with nothing in it is not rendered at all.
+
+  Every role used to declare all four lists, so `items.map` ran unguarded — and
+  a role posted without one would have thrown on `undefined.map`, taking the
+  whole careers page down rather than omitting a heading. Roles differ in what
+  they can honestly say: a non-engineering role may have no technologies worth
+  listing, and inventing bullets to satisfy a renderer is worse than showing
+  fewer sections.
+*/
 function Bullets({ items }) {
+  if (!items || !items.length) return null;
   return (
     <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
       {items.map((t) => (
@@ -32,6 +48,7 @@ function Bullets({ items }) {
 }
 
 function Chips({ items }) {
+  if (!items || !items.length) return null;
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((t) => (
@@ -75,21 +92,29 @@ export default function JobDetails({ job }) {
           ))}
         </Block>
 
-        <Block label="Responsibilities">
-          <Bullets items={job.responsibilities} />
-        </Block>
+        {job.responsibilities?.length > 0 && (
+          <Block label="Responsibilities">
+            <Bullets items={job.responsibilities} />
+          </Block>
+        )}
 
-        <Block label="Required Qualifications">
-          <Bullets items={job.required} />
-        </Block>
+        {job.required?.length > 0 && (
+          <Block label="Required Qualifications">
+            <Bullets items={job.required} />
+          </Block>
+        )}
 
-        <Block label="Preferred Qualifications">
-          <Bullets items={job.preferred} />
-        </Block>
+        {job.preferred?.length > 0 && (
+          <Block label="Preferred Qualifications">
+            <Bullets items={job.preferred} />
+          </Block>
+        )}
 
-        <Block label="Technologies">
-          <Chips items={job.technologies} />
-        </Block>
+        {job.technologies?.length > 0 && (
+          <Block label="Technologies">
+            <Chips items={job.technologies} />
+          </Block>
+        )}
 
       </div>
 
