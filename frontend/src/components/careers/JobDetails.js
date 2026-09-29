@@ -1,4 +1,5 @@
 import React from 'react';
+import { FlowButton } from '@/components/ui/flow-button';
 
 /*
   Expanded role content. Presentation only — receives a job object from
@@ -81,7 +82,7 @@ function MetaRow({ k, v }) {
   );
 }
 
-export default function JobDetails({ job }) {
+export default function JobDetails({ job, onApply }) {
   return (
     <div className="grid lg:grid-cols-12 gap-x-14 gap-y-2" style={{ paddingTop: 30, paddingBottom: 34 }}>
       {/* Primary column */}
@@ -143,29 +144,34 @@ export default function JobDetails({ job }) {
             that is a section someone needs to write, not a variable someone
             needs to find. */}
 
-        {/* How to apply. There is no application form on the site, so this is
-            the whole route in: the address, and what to put in the subject so
-            it is triaged against the right role. --amber-text, not --amber:
-            this panel sits on a light surface. */}
+        {/*
+          Apply. The form is on this same page, so this hands off to it rather
+          than sending the reader to their mail client: onApply selects this role
+          in the form and moves focus there, so the role field is already correct
+          and the reader never retypes a title we already know.
+
+          The mailto route that lived here is gone — it told the reader to put
+          the role in a subject line by hand, which is the job the handoff now
+          does without them. Both addresses on Careers.js still work for anyone
+          who would rather write.
+        */}
         <div style={{ borderTop: '1px solid var(--stone-100)', paddingTop: 22 }}>
-          <div className="meta mb-3" style={{ color: 'var(--ink)' }}>HOW TO APPLY</div>
-          <div style={{ fontSize: 13, color: 'var(--text-body)', lineHeight: 1.65, maxWidth: 'var(--measure-sm)' }}>
-            Send your application to{' '}
-            <a
-              href="mailto:info@vikasanasystems.tech"
-              style={{ color: 'var(--amber-text)', textDecoration: 'underline' }}
-            >
-              info@vikasanasystems.tech
-            </a>{' '}
-            with &ldquo;{job.title}&rdquo; in the subject line, and attach your résumé.
+          <FlowButton
+            type="button"
+            variant="ink"
+            text={`Apply for ${job.title}`}
+            onClick={() => onApply?.(job)}
+          />
+          <div
+            className="mt-3"
+            style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 'var(--measure-sm)' }}
+          >
+            This is a 4 month unpaid internship.
           </div>
-          {/* "Applications are read by an engineer" was here too. It is a claim
-              about the whole page, not about this role, and it now sits once in
-              the UNLISTED ROLES coda on Careers.js — where the reader who most
-              needs the reassurance can actually see it, since they never open a
-              panel. What stays here is the one fact that belongs at the point
-              of action. */}
-          <div className="mt-3" style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 'var(--measure-sm)' }}>
+          <div
+            className="mt-2"
+            style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 'var(--measure-sm)' }}
+          >
             Expected response time is two to three weeks.
           </div>
         </div>

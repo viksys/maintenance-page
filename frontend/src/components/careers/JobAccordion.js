@@ -20,7 +20,7 @@ import { IconPlus } from '@/components/Icon';
   open — a reference to an absent id is worse than no reference at all.
 */
 
-function JobRow({ job, index, isOpen, onToggle }) {
+function JobRow({ job, index, isOpen, onToggle, onApply }) {
   const reduceMotion = useReducedMotion();
   const panelId = `vk-job-panel-${job.slug}`;
   const headerId = `vk-job-header-${job.slug}`;
@@ -113,7 +113,7 @@ function JobRow({ job, index, isOpen, onToggle }) {
             style={{ overflow: 'hidden' }}
           >
             <div style={{ borderTop: '1px solid var(--stone-100)' }}>
-              <JobDetails job={job} />
+              <JobDetails job={job} onApply={onApply} />
             </div>
           </motion.div>
         )}
@@ -122,7 +122,7 @@ function JobRow({ job, index, isOpen, onToggle }) {
   );
 }
 
-export default function JobAccordion({ jobs = [] }) {
+export default function JobAccordion({ jobs = [], onApply }) {
   const [openSlug, setOpenSlug] = useState(null);
 
   return (
@@ -134,6 +134,7 @@ export default function JobAccordion({ jobs = [] }) {
             index={i}
             isOpen={openSlug === job.slug}
             onToggle={() => setOpenSlug((s) => (s === job.slug ? null : job.slug))}
+            onApply={onApply}
           />
         </Reveal>
       ))}

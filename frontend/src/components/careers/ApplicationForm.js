@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlowButton } from '@/components/ui/flow-button';
 import {
   CAREERS_ENDPOINT,
@@ -43,7 +43,7 @@ const TIMEOUT_MS = 60000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-export default function ApplicationForm({ roles = [] }) {
+export default function ApplicationForm({ roles = [], selectedRole = '' }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: '', message: '' });
   const [file, setFile] = useState(null);
   const [errors, setErrors] = useState({});
@@ -51,6 +51,23 @@ export default function ApplicationForm({ roles = [] }) {
   /* null | { ok: true } | { ok: false, message } */
   const [result, setResult] = useState(null);
   const fileInputRef = useRef(null);
+
+  /*
+    Apply on a role panel sets selectedRole, and the field follows it.
+
+    Keyed on the value rather than assigned once, because a reader who opens one
+    role, presses Apply, then changes their mind and presses Apply on the other
+    must end up with the second — an initial-value-only version would silently
+    keep the first and submit the wrong role.
+
+    It does not clear a choice the reader made by hand: selectedRole is only ever
+    set to a real title, so an empty value here means "nothing was chosen for
+    you", not "clear what you chose".
+  */
+  useEffect(() => {
+    if (!selectedRole) return;
+    setForm((f) => (f.role === selectedRole ? f : { ...f, role: selectedRole }));
+  }, [selectedRole]);
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -261,6 +278,16 @@ export default function ApplicationForm({ roles = [] }) {
           <label htmlFor="ca-resume" className="meta mb-2" style={{ display: 'block' }}>
             RÉSUMÉ
           </label>
+          {/*
+            The input is visually hidden but still THE control: it keeps its id,
+            stays in the tab order and is what the label points at, so keyboard
+            and screen-reader behaviour is the browser's own. A div with a click
+            handler would have had to reimplement all of it, badly.
+
+            `sr-only`-style clipping rather than display:none or visibility:
+            hidden — both of those remove the element from the accessibility tree
+            and from the tab order, which is exactly what must not happen here.
+          */}
           <input
             id="ca-resume"
             ref={fileInputRef}
@@ -269,17 +296,88 @@ export default function ApplicationForm({ roles = [] }) {
             onChange={onFile}
             aria-invalid={errors.resume ? 'true' : undefined}
             aria-describedby={errors.resume ? 'ca-resume-error' : 'ca-resume-hint'}
-            style={{ fontSize: 13, color: 'var(--text-tertiary)' }}
+            style={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: 'hidden',
+              clip: 'rect(0 0 0 0)',
+              whiteSpace: 'nowrap',
+              border: 0,
+            }}
           />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              border: '1px solid',
+              borderColor: errors.resume ? 'var(--amber)' : 'var(--stone-100)',
+              padding: '12px 14px',
+            }}
+          >
+            {/* A <label> for a file input opens the picker on click and on
+                Enter/Space when the input has focus — no handler needed. */}
+            <label
+              htmlFor="ca-resume"
+              className="meta"
+              style={{
+                cursor: 'pointer',
+                border: '1px solid var(--ink)',
+                color: 'var(--ink)',
+                padding: '7px 14px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {file ? 'CHANGE FILE' : 'CHOOSE FILE'}
+            </label>
+
+            <span
+              style={{
+                fontSize: 13,
+                color: file ? 'var(--ink)' : 'var(--text-tertiary)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                minWidth: 0,
+              }}
+            >
+              {file ? `${file.name} · ${humanSize(file.size)}` : 'No file chosen'}
+            </span>
+
+            {file && (
+              <button
+                type="button"
+                className="meta"
+                onClick={() => {
+                  setFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                style={{
+                  marginLeft: 'auto',
+                  background: 'none',
+                  border: 0,
+                  padding: '4px 2px',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  textDecoration: 'underline',
+                  flexShrink: 0,
+                }}
+              >
+                REMOVE
+              </button>
+            )}
+          </div>
           {errors.resume ? (
             <div id="ca-resume-error" style={{ fontSize: 12.5, color: 'var(--amber-text)', marginTop: 6 }}>
               {errors.resume}
             </div>
           ) : (
             <div id="ca-resume-hint" style={{ fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 6 }}>
-              {file
-                ? `${file.name} · ${humanSize(file.size)}`
-                : `PDF, Word, RTF, ODT or text. Up to ${humanSize(MAX_RESUME_BYTES)}. Optional.`}
+              {`PDF, Word, RTF, ODT or text. Up to ${humanSize(MAX_RESUME_BYTES)}. Optional.`}
             </div>
           )}
         </div>

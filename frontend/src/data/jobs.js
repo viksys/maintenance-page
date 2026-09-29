@@ -51,7 +51,7 @@ export const jobs = [
     title: 'Defence Systems Intern',
     tags: ['INTERNSHIP', 'MANGALURU · BENGALURU · REMOTE'],
     experience: 'Students and recent graduates',
-    employment: 'Internship, 3–6 months',
+    employment: 'Internship, 4 months, unpaid',
     summary: [
       'As a Defence Systems Intern you will work on a real component of the system alongside the engineering team, not a side project kept away from the product.',
       'You will be given a defined problem, the context to understand why it matters, and an engineer who is responsible for helping you land it.',
@@ -97,7 +97,7 @@ export const jobs = [
     title: 'Social Media Intern',
     tags: ['INTERNSHIP', 'MANGALURU · BENGALURU · REMOTE'],
     experience: 'Students and recent graduates',
-    employment: 'Internship, 3–6 months',
+    employment: 'Internship, 4 months, unpaid',
     summary: [
       'We are looking for candidates who are creative, proactive and interested in building the digital presence of an emerging defence technology startup.',
     ],

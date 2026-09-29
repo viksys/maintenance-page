@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SectionLabel from '@/components/SectionLabel';
@@ -90,6 +90,32 @@ const COMMITMENTS = [
 ];
 
 export default function Careers() {
+  /*
+    Apply, on a role panel, hands off to the form below rather than to a mail
+    client: it selects the role and moves the reader to the form.
+
+    Focus is moved, not just the scroll position. A scroll leaves a keyboard or
+    screen-reader user exactly where they were — the page moves under them and
+    their next Tab continues from the button they just pressed, several hundred
+    pixels above whatever is now on screen. Focusing the first field is what
+    actually takes them there.
+
+    scrollIntoView as well, because focus() alone jumps the field to the edge of
+    the viewport with the heading that explains it off screen.
+  */
+  const [selectedRole, setSelectedRole] = useState('');
+  const formRef = useRef(null);
+
+  const onApply = useCallback((job) => {
+    setSelectedRole(job.title);
+
+    /* After paint: the form may be mounting, and the field cannot be focused
+       before it exists. */
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('ca-name')?.focus({ preventScroll: true });
+    });
+  }, []);
   return (
     <div>
       <Header variant="dark" />
@@ -201,7 +227,7 @@ export default function Careers() {
             </Reveal>
             {/* Expand a role in place for the full brief. Each brief carries the
                 address to send an application to; there is no form. */}
-            <JobAccordion jobs={jobs} />
+            <JobAccordion jobs={jobs} onApply={onApply} />
 
             {/*
               THE UNLISTED ROUTE.
@@ -249,12 +275,12 @@ export default function Careers() {
             */}
             {CAREERS_FORM_READY && (
               <Reveal>
-                <div className="mt-16">
+                <div className="mt-16" ref={formRef}>
                   <h3 className="h-display fs-h3 mb-3">Or apply here.</h3>
                   <p className="text-[14px] measure mb-8" style={{ color: 'var(--text-tertiary)' }}>
                     Attach a résumé if you have one to hand. It is not required — what you write matters more.
                   </p>
-                  <ApplicationForm roles={jobs} />
+                  <ApplicationForm roles={jobs} selectedRole={selectedRole} />
                 </div>
               </Reveal>
             )}
