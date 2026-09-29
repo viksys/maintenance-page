@@ -9,8 +9,28 @@
   Empty until deployed. While it is empty the page shows the email route instead
   of a form, because a form that posts nowhere is worse than no form: the
   candidate believes they have applied, and nobody finds out.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  THE POST IS ANSWERED ACROSS A REDIRECT
+  ─────────────────────────────────────────────────────────────────────────────
+
+  /exec does not reply to a POST. It runs doPost, then answers 302 to
+  script.googleusercontent.com/macros/echo?user_content_key=… and the JSON is
+  served from there. fetch() follows that automatically and resolves with the
+  final response, so nothing here has to handle it — but it explains two things
+  that otherwise look like faults:
+
+    · the work is already DONE by the time the redirect is issued, so a client
+      that gives up at the redirect has still submitted the application;
+    · script.googleusercontent.com must be in connect-src alongside
+      script.google.com, or the policy stops the reply rather than the request.
+
+  Verified end to end on 29 September 2026: POST → 302 → {"ok":true}, with the
+  row in the Sheet and the file in Drive.
 */
-export const CAREERS_ENDPOINT = process.env.REACT_APP_CAREERS_ENDPOINT || '';
+export const CAREERS_ENDPOINT =
+  process.env.REACT_APP_CAREERS_ENDPOINT ||
+  'https://script.google.com/macros/s/AKfycbyKFQet6_EWZ48Z-yf9dbMZ5qfdAHN2apE7nu8uecfuryR-0LPdnV4NVV75sTJypf0C/exec';
 
 export const CAREERS_FORM_READY = Boolean(CAREERS_ENDPOINT);
 
