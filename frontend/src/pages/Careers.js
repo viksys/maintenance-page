@@ -278,7 +278,8 @@ export default function Careers() {
                 <div className="mt-16" ref={formRef}>
                   <h3 className="h-display fs-h3 mb-3">Or apply here.</h3>
                   <p className="text-[14px] measure mb-8" style={{ color: 'var(--text-tertiary)' }}>
-                    Attach a résumé if you have one to hand. It is not required — what you write matters more.
+                    Every field is required, including a résumé. What you write matters more than its
+                    formatting.
                   </p>
                   <ApplicationForm roles={jobs} selectedRole={selectedRole} />
                 </div>

@@ -197,11 +197,19 @@ function receive(body) {
   var role = String(body.role || '').trim();
   var message = String(body.message || '').trim();
 
+  /* Every field is required, matching the form. Checked here as well because
+     the form is shipped to the applicant and can be edited before it posts —
+     this is the copy that decides. */
   if (!name) return { ok: false, error: 'name', message: 'A name is required.' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
     return { ok: false, error: 'email', message: 'That email address does not look right.' };
   }
+  if (!phone) return { ok: false, error: 'phone', message: 'A phone number is required.' };
+  if (!role) return { ok: false, error: 'role', message: 'Choose the role you are applying for.' };
   if (!message) return { ok: false, error: 'message', message: 'Please tell us something about yourself.' };
+  if (!body.resume || !body.resume.data) {
+    return { ok: false, error: 'resume', message: 'Attach your résumé.' };
+  }
 
   /* Trimmed rather than rejected. Losing the tail of a long note is a smaller
      harm than discarding the whole application over a length nobody announced. */
@@ -225,13 +233,12 @@ function receive(body) {
   var fileName = '';
   var sizeKb = '';
 
-  if (body.resume && body.resume.data) {
-    var stored = storeResume(body.resume, name);
-    if (!stored.ok) return stored;
-    fileUrl = stored.url;
-    fileName = stored.name;
-    sizeKb = stored.sizeKb;
-  }
+  /* Guaranteed present — the check above returns when it is not. */
+  var stored = storeResume(body.resume, name);
+  if (!stored.ok) return stored;
+  fileUrl = stored.url;
+  fileName = stored.name;
+  sizeKb = stored.sizeKb;
 
   /* ---- the row ---- */
   var sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];

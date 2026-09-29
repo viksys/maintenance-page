@@ -34,7 +34,9 @@ const BASE = {
   /* Mangaluru and Bengaluru, and remote is on the table — stated here rather
      than per role, because it is true of all of them. */
   location: 'Mangaluru & Bengaluru, Karnataka, India',
-  workplace: 'On-site or hybrid, with remote considered',
+  /* `workplace` was here. The WORKPLACE row that rendered it was removed on
+     29 September 2026, and the field goes with it rather than staying in the
+     bundle for no one to render — as with `visa` and `team` above. */
   travel: 'Occasional, for trials and integration support',
   /* `visa` was here. The WORK AUTH row that rendered it was removed, and it is
      deleted rather than left as data the bundle carries to every visitor for
@@ -51,7 +53,7 @@ export const jobs = [
     title: 'Defence Systems Intern',
     tags: ['INTERNSHIP', 'MANGALURU · BENGALURU · REMOTE'],
     experience: 'Students and recent graduates',
-    employment: 'Internship, 4 months, unpaid',
+    employment: 'Internship, 4 months',
     summary: [
       'As a Defence Systems Intern you will work on a real component of the system alongside the engineering team, not a side project kept away from the product.',
       'You will be given a defined problem, the context to understand why it matters, and an engineer who is responsible for helping you land it.',
@@ -97,7 +99,7 @@ export const jobs = [
     title: 'Social Media Intern',
     tags: ['INTERNSHIP', 'MANGALURU · BENGALURU · REMOTE'],
     experience: 'Students and recent graduates',
-    employment: 'Internship, 4 months, unpaid',
+    employment: 'Internship, 4 months',
     summary: [
       'We are looking for candidates who are creative, proactive and interested in building the digital presence of an emerging defence technology startup.',
     ],

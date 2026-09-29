@@ -126,7 +126,6 @@ export default function JobDetails({ job, onApply }) {
             <MetaRow k="LOCATION" v={job.location} />
             <MetaRow k="TYPE" v={job.employment} />
             <MetaRow k="EXPERIENCE" v={job.experience} />
-            <MetaRow k="WORKPLACE" v={job.workplace} />
             <MetaRow k="TRAVEL" v={job.travel} />
             <MetaRow k="CLEARANCE" v={job.clearance} />
           </div>

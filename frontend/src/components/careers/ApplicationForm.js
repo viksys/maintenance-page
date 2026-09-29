@@ -125,15 +125,21 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
         message: form.message.trim(),
       };
 
+      /* Every field is required. Declared in the order they appear, because the
+         focus jump below takes the first failure and a reader should be sent to
+         the topmost problem, not an arbitrary one. */
       const found = {};
       if (!values.name) found.name = 'Please give us a name.';
       if (!values.email) found.email = 'An email address is required — we reply there.';
       else if (!EMAIL_RE.test(values.email)) found.email = 'That email address does not look right.';
+      if (!values.phone) found.phone = 'A phone number is required.';
+      if (!values.role) found.role = 'Choose the role you are applying for.';
       if (!values.message) found.message = 'Tell us what you have built and what you want to work on.';
+      if (!file) found.resume = 'Attach your résumé.';
 
       setErrors((prev) => ({ ...prev, ...found }));
       if (Object.keys(found).length) {
-        const first = ['name', 'email', 'message'].find((k) => found[k]);
+        const first = ['name', 'email', 'phone', 'role', 'message', 'resume'].find((k) => found[k]);
         document.getElementById(`ca-${first}`)?.focus();
         return;
       }
@@ -145,10 +151,8 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
       const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
       try {
-        let resume = null;
-        if (file) {
-          resume = { name: file.name, type: file.type || '', data: await fileToBase64(file) };
-        }
+        /* Guaranteed present — validation above returns when it is not. */
+        const resume = { name: file.name, type: file.type || '', data: await fileToBase64(file) };
 
         const res = await fetch(CAREERS_ENDPOINT, {
           method: 'POST',
@@ -234,7 +238,7 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
           />
         </TextField>
 
-        <TextField id="ca-phone" label="PHONE">
+        <TextField id="ca-phone" label="PHONE" required error={errors.phone}>
           <input
             id="ca-phone"
             type="tel"
@@ -243,13 +247,24 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
             onChange={set('phone')}
             maxLength={40}
             autoComplete="tel"
-            placeholder="Optional"
+            aria-required="true"
+            aria-invalid={errors.phone ? 'true' : undefined}
+            aria-describedby={errors.phone ? 'ca-phone-error' : undefined}
+            placeholder="Including country code"
           />
         </TextField>
 
-        <TextField id="ca-role" label="ROLE">
-          <select id="ca-role" className="input" value={form.role} onChange={set('role')}>
-            <option value="">Select a role (optional)</option>
+        <TextField id="ca-role" label="ROLE" required error={errors.role}>
+          <select
+            id="ca-role"
+            className="input"
+            value={form.role}
+            onChange={set('role')}
+            aria-required="true"
+            aria-invalid={errors.role ? 'true' : undefined}
+            aria-describedby={errors.role ? 'ca-role-error' : undefined}
+          >
+            <option value="">Select a role</option>
             {roles.map((r) => (
               <option key={r.slug} value={r.title}>
                 {r.title}
@@ -276,7 +291,10 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
 
         <div>
           <label htmlFor="ca-resume" className="meta mb-2" style={{ display: 'block' }}>
-            RÉSUMÉ
+            RÉSUMÉ{' '}
+            <span aria-hidden="true" style={{ color: 'var(--amber-text)' }}>
+              *
+            </span>
           </label>
           {/*
             The input is visually hidden but still THE control: it keeps its id,
@@ -294,6 +312,7 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
             type="file"
             accept={ACCEPT_ATTR}
             onChange={onFile}
+            aria-required="true"
             aria-invalid={errors.resume ? 'true' : undefined}
             aria-describedby={errors.resume ? 'ca-resume-error' : 'ca-resume-hint'}
             style={{
@@ -377,7 +396,7 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
             </div>
           ) : (
             <div id="ca-resume-hint" style={{ fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 6 }}>
-              {`PDF, Word, RTF, ODT or text. Up to ${humanSize(MAX_RESUME_BYTES)}. Optional.`}
+              {`PDF, Word, RTF, ODT or text. Up to ${humanSize(MAX_RESUME_BYTES)}.`}
             </div>
           )}
         </div>
