@@ -62,6 +62,24 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
   const fileInputRef = useRef(null);
 
   /*
+    The animated ellipsis after "Uploading".
+
+    It exists to show the page is still working: a submission with a résumé runs
+    for tens of seconds, and a label that never changes looks like one that has
+    stopped. Only the dots move — the word does not — so the announcement below
+    stays stable.
+  */
+  const [dots, setDots] = useState(1);
+  useEffect(() => {
+    if (!sending) {
+      setDots(1);
+      return undefined;
+    }
+    const id = setInterval(() => setDots((d) => (d % 3) + 1), 400);
+    return () => clearInterval(id);
+  }, [sending]);
+
+  /*
     Apply on a role panel sets selectedRole, and the field follows it.
 
     Keyed on the value rather than assigned once, because a reader who opens one
@@ -200,7 +218,7 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
         if (!data && res.ok) {
           const crashed = /ReferenceError|TypeError|Exception|SyntaxError|is not defined/i.test(raw);
           if (!crashed) {
-            setResult({ ok: true });
+            setResult({ ok: true, email: values.email });
             setForm({ name: '', email: '', phone: '', role: '', message: '' });
             setFile(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -215,7 +233,7 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
         }
 
         if (data && data.ok) {
-          setResult({ ok: true });
+          setResult({ ok: true, email: values.email });
           setForm({ name: '', email: '', phone: '', role: '', message: '' });
           setFile(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
@@ -258,10 +276,18 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
 
   if (result?.ok) {
     return (
+      /* The address is quoted back because the form has just been cleared, and
+         a typo in it is the one mistake that makes everything else pointless —
+         this is the last moment anyone can catch it.
+
+         "Every one is read by an engineer" is not repeated here: it already
+         sits in the UNLISTED ROLES note further up the same page, and a claim
+         made twice on one screen reads as filler rather than reassurance. */
       <div role="status" style={{ maxWidth: 'var(--measure)' }}>
-        <h3 className="h-display fs-h3 mb-4">Application received.</h3>
+        <h3 className="h-display fs-h3 mb-4">Thank you — that is with us.</h3>
         <p className="text-[14px]" style={{ color: 'var(--text-tertiary)' }}>
-          Every one is read by an engineer. If there is a fit we will write to the address you gave us.
+          We have your details and your résumé. If there is a fit, we will write to{' '}
+          <strong style={{ color: 'var(--ink)' }}>{result.email}</strong>.
         </p>
       </div>
     );
@@ -467,14 +493,21 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
 
       <div className="flex items-center gap-4" style={{ marginTop: 26 }}>
         <FlowButton type="submit" variant="ink" text={sending ? 'Sending…' : 'Send Application'} />
-        {/* A large résumé can take a minute or more, and silence during it is
-            what makes someone press the button again. */}
-        <span aria-live="polite" role="status" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-          {sending
-            ? file && file.size > 512 * 1024
-              ? 'Uploading — a large file can take a minute. Please wait.'
-              : 'Sending…'
-            : ''}
+        {/*
+          The word is inside the live region; the dots are aria-hidden beside it.
+
+          A live region whose text changes four times a second is announced four
+          times a second, which is unusable — so a screen reader hears
+          "Uploading" once and sees nothing of the animation, while the dots do
+          the reassuring for everyone else.
+        */}
+        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+          <span aria-live="polite" role="status">{sending ? 'Uploading' : ''}</span>
+          {sending && (
+            <span aria-hidden="true" style={{ fontFamily: 'var(--font-mono)' }}>
+              {'.'.repeat(dots)}
+            </span>
+          )}
         </span>
       </div>
 
