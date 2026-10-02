@@ -1,4 +1,5 @@
 import React from 'react';
+import SocialLinks from '@/components/SocialLinks';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SectionLabel from '@/components/SectionLabel';
@@ -198,6 +199,17 @@ export default function Locations() {
                         <div className="col-span-2 text-[13.5px]" style={{ color: 'var(--ink)' }}>{r.v}</div>
                       </div>
                     ))}
+
+                    {/* Same grid as the rows above, so FOLLOW lines up with
+                        ADDRESS and EMAIL rather than starting a new rhythm.
+                        No bottom border: it is the last row, and the block's
+                        own edge closes it. */}
+                    <div className="grid grid-cols-3 gap-4 py-4">
+                      <div className="meta" style={{ color: 'var(--text-tertiary)' }}>FOLLOW</div>
+                      <div className="col-span-2">
+                        <SocialLinks color="var(--text-tertiary)" hoverColor="var(--amber-text)" />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import SocialLinks from '@/components/SocialLinks';
 import { Link } from 'react-router-dom';
 
 /*
@@ -260,7 +261,14 @@ export default function Footer({ variant = 'dark' }) {
           {/* Legal links live in their own column above; repeating them here was
               the main source of footer duplication. */}
           <div className="meta" style={{ color: faint }}>© {new Date().getFullYear()} VIKASANA SYSTEMS PRIVATE LIMITED · ALL RIGHTS RESERVED</div>
-          <div className="meta" style={{ color: faint }}>MANGALURU · KARNATAKA · INDIA</div>
+          <div className="flex flex-col md:flex-row items-center gap-3 md:gap-6">
+            {/* Ordered after the locality on desktop and above it on a phone,
+                which is what the column reversal does — the marks are the only
+                thing here anyone clicks, and burying them under two lines of
+                set-text on the narrowest screen puts them last. */}
+            <div className="meta order-2 md:order-1" style={{ color: faint }}>MANGALURU · KARNATAKA · INDIA</div>
+            <SocialLinks className="order-1 md:order-2" color={faint} hoverColor={link} />
+          </div>
         </div>
       </div>
     </footer>

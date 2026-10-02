@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import SocialLinks from '@/components/SocialLinks';
 import { Link, useLocation } from 'react-router-dom';
 import { scrollToTop, lockScroll, unlockScroll } from '@/lib/smooth-scroll';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -969,19 +970,24 @@ export default function Header({ variant }) {
               >
                 <MegaBrowser mega={activeGroup.mega} />
 
-                {/* Footer: contact.
+                {/* Footer: contact, and the two networks the company is on.
 
-                    The SOCIAL column that sat beside it is removed by
-                    direction — see the note in Footer.js. It listed five
-                    networks as inert text, two of which (IG, FB) had no icon
-                    at all, for a company with no published presence on any of
-                    them. */}
+                    The SOCIAL column removed on 23 September 2026 listed five
+                    networks as inert text, two of which had no icon and none of
+                    which had a link. What returns here is neither a column nor a
+                    list of five: it is two links that work, under the address.
+                    See data/social.js. */}
                 <div className="grid grid-cols-12 gap-8 mt-16 pt-10" style={{ borderTop: '1px solid var(--stone-800)' }}>
                   <div className="col-span-12 md:col-span-4">
                     <div className="meta mb-3" style={{ color: 'var(--text-on-dark)' }}>CONTACT</div>
                     <a href="mailto:info@vikasanasystems.tech" className="text-[15px] hover:text-[color:var(--amber)] transition-colors" style={{ color: 'var(--off-white)' }}>
                       info@vikasanasystems.tech
                     </a>
+                    {/* Under the address, not beside it: this column is four of
+                        twelve on desktop and the whole width on a phone, and a
+                        row of 44px targets next to a 15px address would wrap
+                        awkwardly at the narrow end. */}
+                    <SocialLinks className="mt-4" color="var(--stone-400)" hoverColor="var(--amber)" />
                   </div>
                 </div>
               </motion.div>
