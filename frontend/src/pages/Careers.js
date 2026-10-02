@@ -287,13 +287,35 @@ export default function Careers() {
             */}
             {CAREERS_FORM_READY && (
               <Reveal>
-                <div className="mt-16" ref={formRef}>
-                  <h3 className="h-display fs-h3 mb-3">Or apply here.</h3>
-                  <p className="text-[14px] measure mb-8" style={{ color: 'var(--text-tertiary)' }}>
-                    Every field is required, including a résumé. What you write matters more than its
-                    formatting.
-                  </p>
-                  <ApplicationForm roles={jobs} selectedRole={selectedRole} />
+                {/*
+                  The page's own section shape, not a new one: a hairline, then
+                  md:grid-cols-12 split 4/8 with the heading left and the fields
+                  right — identical to FAQ.js directly below it, and to every
+                  other block on this page.
+
+                  It was a single ~400px column hard against the left margin of a
+                  1280px page, under a heading with no rule above it, while
+                  everything around it spanned the full container. It read as
+                  something bolted on rather than a section of the page.
+                */}
+                <div
+                  className="mt-16 pt-14"
+                  ref={formRef}
+                  style={{ borderTop: '1px solid var(--stone-100)' }}
+                >
+                  <div className="grid md:grid-cols-12 gap-8 md:gap-12 items-start">
+                    <div className="md:col-span-4">
+                      <div className="meta mb-4" style={{ color: 'var(--text-secondary)' }}>APPLY</div>
+                      <h3 className="h-display fs-h3 mb-3">Or apply here.</h3>
+                      <p className="text-[14px]" style={{ color: 'var(--text-tertiary)' }}>
+                        Every field is required, including a résumé. What you write matters more than its
+                        formatting.
+                      </p>
+                    </div>
+                    <div className="md:col-span-8">
+                      <ApplicationForm roles={jobs} selectedRole={selectedRole} />
+                    </div>
+                  </div>
                 </div>
               </Reveal>
             )}

@@ -294,8 +294,13 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate style={{ maxWidth: 'var(--measure-sm)' }}>
-      <div style={{ display: 'grid', gap: 18 }}>
+    /* No maxWidth: the 8-of-12 column it sits in decides that now. It used to
+       carry --measure-sm and so stayed ~400px wide however much room it had. */
+    <form onSubmit={onSubmit} noValidate>
+      {/* Two columns from md up for the short fields, one below it. A column of
+          six full-width inputs is a long scroll for four values that are each a
+          line long, and the page's other blocks are all multi-column. */}
+      <div className="grid md:grid-cols-2 gap-x-6 gap-y-5">
         <TextField id="ca-name" label="NAME" required error={errors.name}>
           <input
             id="ca-name"
@@ -363,7 +368,7 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
           </select>
         </TextField>
 
-        <TextField id="ca-message" label="ABOUT YOU" required error={errors.message}>
+        <TextField id="ca-message" label="ABOUT YOU" required error={errors.message} className="md:col-span-2">
           <textarea
             id="ca-message"
             className="input"
@@ -378,7 +383,7 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
           />
         </TextField>
 
-        <div>
+        <div className="md:col-span-2">
           <label htmlFor="ca-resume" className="meta mb-2" style={{ display: 'block' }}>
             RÉSUMÉ{' '}
             <span aria-hidden="true" style={{ color: 'var(--amber-text)' }}>
@@ -431,13 +436,27 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
             <label
               htmlFor="ca-resume"
               className="meta"
+              /* The site states every button as a 100px pill in mono uppercase
+                 — FlowButton, which renders Send Application directly below
+                 this. A square-cornered box here was the one control on the
+                 page speaking a different language. */
               style={{
                 cursor: 'pointer',
-                border: '1px solid var(--ink)',
+                border: '1.5px solid var(--ink)',
+                borderRadius: 100,
                 color: 'var(--ink)',
-                padding: '7px 14px',
+                padding: '9px 20px',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
+                transition: 'background .2s ease, color .2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--ink)';
+                e.currentTarget.style.color = 'var(--white)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--ink)';
               }}
             >
               {file ? 'CHANGE FILE' : 'CHOOSE FILE'}
@@ -524,9 +543,9 @@ export default function ApplicationForm({ roles = [], selectedRole = '' }) {
 /* Label, control and error wired together. Written here rather than imported
    because this tree has no shared form primitives — lib/forms.js belongs to the
    other branch of this project. */
-function TextField({ id, label, required, error, children }) {
+function TextField({ id, label, required, error, children, className = '' }) {
   return (
-    <div>
+    <div className={className}>
       <label htmlFor={id} className="meta mb-2" style={{ display: 'block' }}>
         {label}{' '}
         {required && (
