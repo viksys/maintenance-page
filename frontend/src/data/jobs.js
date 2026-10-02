@@ -1,11 +1,12 @@
 /*
   Open roles.
 
-  TWO ROLES. Six engineering positions — software, embedded, robotics, computer
+  THREE ROLES. Six engineering positions — software, embedded, robotics, computer
   vision, electronics and mechanical design — were listed here and removed on
   23 September 2026, by direction: the company is hiring interns and nothing
   else, and a careers page advertising six roles it will not fill costs more
-  than an empty one. Social Media Intern was added on 29 September 2026.
+  than an empty one. Social Media Intern was added on 29 September 2026, and
+  Management Intern on 2 October 2026.
 
   Roles need not be shaped alike. Social Media Intern declares no
   `responsibilities` and no `required` because neither was given, and JobDetails
@@ -123,5 +124,31 @@ export const jobs = [
       'Creative thinking and strong communication skills',
     ],
     technologies: ['LinkedIn', 'Instagram', 'YouTube'],
+  },
+  {
+    slug: 'management-intern',
+    title: 'Management Intern',
+    tags: ['INTERNSHIP', 'MANGALURU · BENGALURU · REMOTE'],
+    experience: 'Students and recent graduates',
+    employment: 'Internship, 4 months',
+    summary: [
+      'We are looking for candidates who write clearly and work carefully with documents — the proposals, reports, process notes and records a defence technology company runs on.',
+      'Much of what a young company knows gets written down only once, and this role is responsible for making sure it is written down well.',
+    ],
+    /* No `responsibilities` and no `required`, as with Social Media Intern:
+       neither was supplied, and JobDetails omits a section whose list is empty
+       rather than inventing duties nobody has agreed to. */
+    preferred: [
+      'Clear written English, and the judgement to keep it plain',
+      'Drafting and formatting documents — proposals, reports, memos, process notes',
+      'Microsoft Word and Google Docs, including styles, templates and long-document structure',
+      'Spreadsheets for tracking and simple reporting',
+      'Presentations in PowerPoint or Google Slides',
+      'Researching a topic and summarising sources accurately',
+      'Organising files and records so someone else can find them',
+      'Attention to detail, and comfort asking when something is unclear',
+      'Discretion with confidential material',
+    ],
+    technologies: ['Word', 'Google Docs', 'Excel', 'Google Sheets', 'PowerPoint'],
   },
 ].map((role) => ({ ...BASE, ...role }));
