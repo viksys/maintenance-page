@@ -1082,6 +1082,21 @@ export default function Header({ variant }) {
           display: inline-flex;
           align-items: center;
           gap: 8px;
+          /*
+            SEARCH sat about two pixels above COMPANY in the right-hand cluster.
+
+            The class is worn by two different elements: a <Link> for every
+            section, and a plain <button> for Search. A button's user-agent
+            line-height is 'normal' while the anchor inherits the page's, so the
+            two inline-flex boxes were different heights, and inside the anchor a
+            zero-width .dash inline-block set the line box from the inherited
+            value rather than the glyph. Centring boxes that disagree about where
+            their text sits does not make the text agree.
+
+            Pinning line-height makes every wearer of this class measure the
+            same, whichever element it lands on.
+          */
+          line-height: 1;
         }
         .anduril-link:hover { color: var(--text-on-dark-2); }
         .anduril-link.is-open { color: var(--text-on-dark-2); }
