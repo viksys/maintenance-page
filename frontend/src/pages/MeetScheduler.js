@@ -71,10 +71,20 @@ const WIDGET_SRC = 'https://assets.calendly.com/assets/external/widget.js';
 const EVENT_URL = 'https://calendly.com/vikasanasystems';
 const CONTAINER_ID = 'calendly-inline-widget-vikasana';
 
-/* If the widget has not rendered by now, assume it is not going to. Blocked by
-   an extension, an offline device, or calendly being down all look the same
-   from here, and all of them leave an empty box unless something says so. */
-const LOAD_TIMEOUT_MS = 8000;
+/*
+  How long before the page offers a way out.
+
+  Raised from 8s. Calendly's embed is a shell that then loads its own
+  application inside the iframe, and on a slow connection that is comfortably
+  more than eight seconds — so the old value declared a failure over a widget
+  that was still arriving, which is the same false negative the careers form
+  used to show on a timed-out upload.
+
+  It no longer claims the calendar is broken either; see the copy below. This is
+  the point at which a reader is offered the direct link, not the point at which
+  we decide the widget has failed.
+*/
+const LOAD_TIMEOUT_MS = 20000;
 
 export default function MeetScheduler() {
   /* 'loading' | 'ready' | 'failed' */
@@ -83,6 +93,35 @@ export default function MeetScheduler() {
 
   useEffect(() => {
     let cancelled = false;
+
+    /*
+      WARM BOTH CONNECTIONS BEFORE EITHER IS NEEDED.
+
+      The embed costs two handshakes, in sequence: widget.js is fetched from
+      assets.calendly.com, and only once it has run does the iframe it creates
+      open a SECOND connection to calendly.com. Measured from here, 0.29s of the
+      first request and 0.10s of the second are DNS and TLS — paid one after the
+      other, with the second not even started until the first has finished.
+
+      preconnect starts both handshakes now, in parallel, so the iframe's
+      connection is already open when the script asks for it.
+
+      These live here and NOT in public/index.html on purpose. A hint in the
+      document head opens a connection to Calendly from EVERY page on the site,
+      for a widget that exists on one unlisted route — a privacy cost paid by
+      readers who will never see a calendar, to save time on a page they are not
+      visiting.
+    */
+    const hints = ['https://assets.calendly.com', 'https://calendly.com'].map((href) => {
+      const existing = document.querySelector(`link[rel="preconnect"][href="${href}"]`);
+      if (existing) return null;
+      const link = document.createElement('link');
+      link.rel = 'preconnect';
+      link.href = href;
+      link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+      return link;
+    });
 
     /*
       Calendly has no queue shim, unlike Koalendar. widget.js scans the document
@@ -147,6 +186,9 @@ export default function MeetScheduler() {
       cancelled = true;
       clearTimeout(timer);
       observer.disconnect();
+      /* The connections themselves persist in the browser's pool, which is the
+         point; only the hint elements go. */
+      hints.forEach((link) => link && link.remove());
     };
   }, []);
 
@@ -212,7 +254,7 @@ export default function MeetScheduler() {
               <div aria-live="polite">
                 {state === 'loading' && (
                   <p className="text-[13px]" style={{ color: 'var(--text-tertiary)' }}>
-                    Loading the calendar…
+                    Loading the calendar — this can take a few seconds.
                   </p>
                 )}
 
@@ -229,8 +271,8 @@ export default function MeetScheduler() {
                       maxWidth: 'var(--measure-sm)',
                     }}
                   >
-                    The calendar did not load — an extension or network policy may be blocking it. Book directly
-                    at{' '}
+                    The calendar is taking a while. It may still appear — an extension or network policy can
+                    also block it. Either way you can book directly at{' '}
                     <a
                       href={EVENT_URL}
                       target="_blank"
