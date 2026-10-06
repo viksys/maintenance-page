@@ -40,16 +40,18 @@ import Seo from '@/components/Seo';
   console answers `resourcemanager.projects.get (Missing)` and there is no
   administrator to ask on a consumer account.
 
-  Koalendar owns the slots, the timezone conversion, the collision handling and
-  the Meet link instead.
+  Calendly owns the slots, the timezone conversion, the collision handling and
+  the meeting link instead. It replaced Koalendar on 6 October 2026; a Doodle
+  frame was tried in between and reverted, because it put a consent dialog
+  naming 137 advertising partners inside this page ahead of the booking UI.
 
   ─────────────────────────────────────────────────────────────────────────────
   THIS IS THE ONLY THIRD-PARTY SCRIPT ON THE SITE
   ─────────────────────────────────────────────────────────────────────────────
 
   The README's claim of "no third-party scripts" stops being true with this file,
-  and it is worth being clear about what that costs: koalendar.com executes
-  JavaScript on our origin on this route, and the name, email and any message a
+  and it is worth being clear about what that costs: assets.calendly.com executes
+  JavaScript on our origin on this route, and the name, email and anything a
   visitor types go to them rather than to us. That is the trade for not running
   a server. It is confined to this one unlisted page.
 
@@ -57,18 +59,20 @@ import Seo from '@/components/Seo';
   in index.html, for two reasons: CRA would not process it there anyway, and
   scripts/check-artifact.js fails the build on any executable inline script,
   because the Content-Security-Policy in vercel.json carries no 'unsafe-inline'.
-  That policy has been widened for koalendar.com in script-src, frame-src and
-  connect-src. GitHub Pages serves no CSP at all, so on the live site the policy
-  is documentation — but a build that only works because nothing enforces the
-  rules is not one to rely on.
+  That policy is widened for assets.calendly.com in script-src, style-src and
+  img-src — the widget injects its own stylesheet and images — and for
+  calendly.com in frame-src and connect-src, because what it finally draws is an
+  iframe to calendly.com. GitHub Pages serves no CSP at all, so on the live site
+  the policy is documentation; a build that only works because nothing enforces
+  the rules is not one to rely on.
 */
 
-const WIDGET_SRC = 'https://koalendar.com/assets/widget.js';
-const EVENT_URL = 'https://koalendar.com/e/meet-with-vikasana';
-const CONTAINER_ID = 'inline-widget-meet-with-vikasana';
+const WIDGET_SRC = 'https://assets.calendly.com/assets/external/widget.js';
+const EVENT_URL = 'https://calendly.com/vikasanasystems';
+const CONTAINER_ID = 'calendly-inline-widget-vikasana';
 
 /* If the widget has not rendered by now, assume it is not going to. Blocked by
-   an extension, an offline device, or koalendar being down all look the same
+   an extension, an offline device, or calendly being down all look the same
    from here, and all of them leave an empty box unless something says so. */
 const LOAD_TIMEOUT_MS = 8000;
 
@@ -81,16 +85,24 @@ export default function MeetScheduler() {
     let cancelled = false;
 
     /*
-      The queue shim from Koalendar's own snippet. It has to exist before the
-      inline() call below, because widget.js is async: the call almost always
-      happens first, and the shim is what holds it until the real
-      implementation arrives and drains the queue.
+      Calendly has no queue shim, unlike Koalendar. widget.js scans the document
+      for .calendly-inline-widget ON ITS OWN LOAD and initialises what it finds —
+      which works on a first visit and does NOTHING on a return visit, because
+      the script is already in the document and never loads again. React Router
+      keeps this page mounted and unmounted within one document, so the second
+      visit is the common case, not the edge one.
+
+      Hence both paths: initialise explicitly when window.Calendly already
+      exists, and let the script's own scan handle the first load.
     */
-    if (!window.Koalendar) {
-      window.Koalendar = function Koalendar() {
-        (window.Koalendar.props = window.Koalendar.props || []).push(arguments);
-      };
-    }
+    const mount = () => {
+      if (cancelled || !containerRef.current) return;
+      if (!window.Calendly || typeof window.Calendly.initInlineWidget !== 'function') return;
+      /* Guard against initialising twice — the script's own scan may already
+         have done it, and a second call appends a second iframe. */
+      if (containerRef.current.childElementCount > 0) return;
+      window.Calendly.initInlineWidget({ url: EVENT_URL, parentElement: containerRef.current });
+    };
 
     /* One <script> per document, not per mount. React StrictMode mounts twice
        in development, and a second copy would register the widget twice. */
@@ -102,10 +114,12 @@ export default function MeetScheduler() {
       script.addEventListener('error', () => {
         if (!cancelled) setState('failed');
       });
+      script.addEventListener('load', mount);
       document.body.appendChild(script);
+    } else {
+      /* Already present from an earlier visit to this route. */
+      mount();
     }
-
-    window.Koalendar('inline', { url: EVENT_URL, selector: `#${CONTAINER_ID}` });
 
     /*
       Watch the container rather than the script's load event. A loaded script
@@ -223,7 +237,7 @@ export default function MeetScheduler() {
                       rel="noopener noreferrer"
                       style={{ color: 'var(--amber-text)', textDecoration: 'underline' }}
                     >
-                      koalendar.com/e/meet-with-vikasana
+                      calendly.com/vikasanasystems
                     </a>
                     , or write to{' '}
                     <a
@@ -237,7 +251,17 @@ export default function MeetScheduler() {
                 )}
               </div>
 
-              <div id={CONTAINER_ID} ref={containerRef} style={{ minHeight: state === 'ready' ? 0 : undefined }} />
+              {/* The class is Calendly's hook, kept so the script's own scan
+                  finds it on a first load; data-url is what that scan reads.
+                  min-width 320 and the height are from Calendly's own snippet —
+                  the widget does not size itself. */}
+              <div
+                id={CONTAINER_ID}
+                ref={containerRef}
+                className="calendly-inline-widget"
+                data-url={EVENT_URL}
+                style={{ minWidth: 320, height: 700 }}
+              />
             </Reveal>
           </div>
         </section>
