@@ -68,6 +68,56 @@ var PENDING_PREFIX = 'deliver:';
 var FORWARD_INBOX = 'info@vikasanasystems.tech';
 var FORWARD_CC = 'mohanth@vikasanasystems.tech';
 
+/*
+  ─────────────────────────────────────────────────────────────────────────────
+  THE SPREADSHEET IS NAMED, NOT ASSUMED
+  ─────────────────────────────────────────────────────────────────────────────
+
+  Code.gs reaches the sheet with SpreadsheetApp.getActive(), which returns the
+  document the script is BOUND to. That is right for the menu — it only ever
+  runs from inside the sheet — and wrong for everything in this file:
+
+    · a standalone project has no bound document, so getActive() is null and
+      sheet_() throws "Cannot read properties of null";
+    · a web app request and a time-based trigger run with no document open, so
+      even in a bound project getActive() is not something to rely on.
+
+  Paste the Candidates spreadsheet's ID here and both problems disappear,
+  whether the project is bound or standalone. It is the noisy part of the URL:
+
+    https://docs.google.com/spreadsheets/d/1AbC...XyZ/edit#gid=0
+                                           └──── this ────┘
+
+  Left blank, this falls back to Code.gs's getActive() so a bound project keeps
+  working without being edited.
+*/
+var SPREADSHEET_ID = '';
+
+/**
+ * The sheet, reached the way this file needs rather than the way the menu does.
+ *
+ * Returns the same { sheet, headers } shape as Code.gs's sheet_(), so every
+ * helper there — cell_, setCell_, rowData_ — takes it unchanged.
+ */
+function sheetCtx_() {
+  if (!SPREADSHEET_ID) {
+    /* Bound project, no ID configured: Code.gs's version still works when the
+       caller is the menu. It will throw for a web app or a trigger, and the
+       message in setupWebForm names the fix. */
+    return sheet_();
+  }
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+  if (!sheet) {
+    throw new Error('Sheet tab "' + CONFIG.SHEET_NAME + '" not found in that spreadsheet. ' +
+                    'Check the tab is named exactly that, and that SPREADSHEET_ID points at the right file.');
+  }
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) {
+    return String(h).trim();
+  });
+  return { sheet: sheet, headers: headers };
+}
+
 /* ───────────────────────────────────────────────────────────── first run */
 
 function setupWebForm() {
@@ -75,7 +125,13 @@ function setupWebForm() {
       /^PASTE_/.test(CONFIG.OUTPUT_FOLDER_ID)) {
     throw new Error('CONFIG in Code.gs still has PASTE_ placeholders — fill in the two template IDs and the output folder ID first.');
   }
-  var ctx = sheet_();
+  if (!SPREADSHEET_ID && !SpreadsheetApp.getActive()) {
+    throw new Error(
+      'This project is not bound to a spreadsheet, so SpreadsheetApp.getActive() is null. ' +
+      'Paste the Candidates spreadsheet ID into SPREADSHEET_ID at the top of WebForm.gs — ' +
+      'it is the part of the sheet URL between /d/ and /edit.');
+  }
+  var ctx = sheetCtx_();
   DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
   DocumentApp.openById(CONFIG.OFFER_TEMPLATE_ID);
   DocumentApp.openById(CONFIG.NDA_TEMPLATE_ID);
@@ -127,7 +183,7 @@ function receive_(body) {
   }
 
   try {
-    var ctx = sheet_();
+    var ctx = sheetCtx_();
     var row = findRow_(ctx, name, email);
 
     if (row) {
@@ -237,7 +293,7 @@ function deliverScheduled_(e) {
 }
 
 function deliverRow_(row) {
-  var ctx = sheet_();
+  var ctx = sheetCtx_();
   var name = String(cell_(ctx.sheet, ctx.headers, row, COL.NAME) || '').trim();
   if (!name) { console.error('Row %s has no name; nothing sent.', row); return; }
 
