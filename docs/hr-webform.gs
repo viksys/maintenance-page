@@ -72,6 +72,34 @@ var FORWARD_CC = 'mohanth@vikasanasystems.tech';
 
 /*
   ─────────────────────────────────────────────────────────────────────────────
+  SEND AS info@ DIRECTLY, AND SKIP THE FORWARDING ENTIRELY
+  ─────────────────────────────────────────────────────────────────────────────
+
+  Forwarding gets the sender right and the body wrong. Gmail puts a quoted
+  header in a forwarded message —
+
+      ---------- Forwarded message ---------
+      From: VIKASANA Systems HR <vikasanasystems@gmail.com>
+
+  — so the candidate sees info@ in the From line and the gmail address three
+  lines below it, unless whoever forwards deletes that block every single time.
+
+  Gmail can send as another address IF that address is verified on the account
+  under Settings → Accounts and Import → "Send mail as". Once info@ is in that
+  list, GmailApp will send as it and the candidate never has a gmail address to
+  see, in the header or the body, and nobody has to forward anything.
+
+  Put the alias here to switch to direct sending. Run listAliases() first — it
+  logs exactly what this account may send as, and an alias that is not verified
+  is silently ignored by Gmail, which would send from the gmail address while
+  looking like it worked.
+
+  Left blank, the forwarding flow above stays exactly as it is.
+*/
+var SEND_AS = '';
+
+/*
+  ─────────────────────────────────────────────────────────────────────────────
   THE SPREADSHEET IS NAMED, NOT ASSUMED
   ─────────────────────────────────────────────────────────────────────────────
 
@@ -382,12 +410,41 @@ function deliverRow_(row) {
 }
 
 /**
- * Mails the PDFs to FORWARD_INBOX, ready to be forwarded to the candidate.
+ * Logs every address this account is allowed to send as.
  *
- * Subject names the candidate so the inbox list is readable and so whoever
- * forwards it does not have to open the attachments to find out who it is for.
+ * Run it before setting SEND_AS. Gmail ignores an unverified alias without
+ * complaining — it sends from the account's own address instead — so a typo or
+ * an unfinished verification would look like success and leak the gmail address
+ * to a candidate.
+ */
+function listAliases() {
+  var aliases = GmailApp.getAliases();
+  if (!aliases.length) {
+    Logger.log('No send-as aliases on this account. Add info@vikasanasystems.tech under ' +
+               'Gmail → Settings → Accounts and Import → "Send mail as", verify it, then run this again.');
+    return;
+  }
+  Logger.log('This account can send as:\n  %s', aliases.join('\n  '));
+  Logger.log(SEND_AS
+    ? (aliases.indexOf(SEND_AS) >= 0
+        ? 'SEND_AS "' + SEND_AS + '" is verified — direct sending will work.'
+        : 'SEND_AS "' + SEND_AS + '" is NOT in that list. Gmail would ignore it and send from the account address.')
+    : 'SEND_AS is empty, so documents go to ' + FORWARD_INBOX + ' to be forwarded.');
+}
+
+/**
+ * Mails the PDFs to the candidate as SEND_AS, or to FORWARD_INBOX to be
+ * forwarded when no alias is configured.
+ *
+ * In the forwarding case the subject names the candidate, so the inbox list is
+ * readable and nobody has to open an attachment to find out who it is for.
  */
 function sendForForwarding_(data, pdfs) {
+  if (SEND_AS) return sendAsAlias_(data, pdfs);
+  return sendToForwardInbox_(data, pdfs);
+}
+
+function sendToForwardInbox_(data, pdfs) {
   var subject = 'TO SEND — ' + data.NAME + ' <' + data.EMAIL + '> — Offer of Internship & NDA';
 
   /* Addressed to the candidate and signed off, so Forward needs no editing. */
@@ -422,6 +479,44 @@ function sendForForwarding_(data, pdfs) {
     replyTo: FORWARD_CC,
   };
   GmailApp.sendEmail(FORWARD_INBOX, subject, html.replace(/<[^>]+>/g, ' '), opts);
+}
+
+/**
+ * Sends straight to the candidate, from the verified alias.
+ *
+ * The alias is checked against getAliases() rather than trusted: Gmail falls
+ * back to the account's own address for an unverified one, which would put the
+ * gmail address in front of a candidate while every log said the mail was sent.
+ * Better to fail into the forwarding flow, which is known to be safe.
+ */
+function sendAsAlias_(data, pdfs) {
+  if (GmailApp.getAliases().indexOf(SEND_AS) < 0) {
+    console.error('SEND_AS "%s" is not a verified alias on this account — falling back to %s. Run listAliases().',
+                  SEND_AS, FORWARD_INBOX);
+    return sendToForwardInbox_(data, pdfs);
+  }
+
+  var subject = 'VIKASANA Systems — Offer of Internship & NDA (' + data.ROLE + ')';
+  var html =
+    '<p>Dear ' + data.NAME + ',</p>' +
+    '<p>Congratulations. Please find attached your <b>Offer of Internship</b> and ' +
+    '<b>Non-Disclosure Agreement</b> for the position of <b>' + data.ROLE + '</b> at ' +
+    'VIKASANA Systems Private Limited, starting <b>' + data.START_DATE + '</b>.</p>' +
+    '<p>To confirm, please:</p><ol>' +
+    '<li>Sign and date the <b>Offer of Internship Accepted</b> page of the offer letter.</li>' +
+    '<li>Sign and date the signature block on the last page of the NDA.</li>' +
+    '<li>Reply to this email with the signed copies, scanned or photographed clearly.</li></ol>' +
+    '<p>If you have any questions, simply reply to this email.</p>' +
+    '<p>Regards,<br>' + CONFIG.SENDER_NAME + '<br>VIKASANA Systems Private Limited, Mangaluru</p>';
+
+  GmailApp.sendEmail(data.EMAIL, subject, html.replace(/<[^>]+>/g, ' '), {
+    htmlBody: html,
+    attachments: pdfs,
+    name: CONFIG.SENDER_NAME,
+    from: SEND_AS,
+    cc: FORWARD_CC,
+    replyTo: SEND_AS,
+  });
 }
 
 function deleteTrigger_(uid) {
