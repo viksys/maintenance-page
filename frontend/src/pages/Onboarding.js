@@ -41,17 +41,15 @@ import { ONBOARDING_ENDPOINT, ONBOARDING_READY } from '@/data/onboarding';
   THE WAIT IS NAMED BUT NOT TIMED
   ─────────────────────────────────────────────────────────────────────────────
 
-  The documents do not arrive on submit. The script waits 10–15 minutes, then
-  mails them to info@vikasanasystems.tech — and they reach the intern only when
-  someone there forwards them, because Apps Script cannot send as anything but
-  the account it runs on and an offer letter should not arrive from a gmail
-  address.
+  The script waits a random 5–15 minutes, then mails the documents to
+  info@vikasanasystems.tech — and they reach the intern only when someone there
+  forwards them, because Apps Script cannot send as anything but the account it
+  runs on and an offer letter should not arrive from a gmail address.
 
-  So the page says the documents are being prepared and will be emailed, and
-  does NOT print a number. The 10–15 minutes is our half of the chain, not
-  theirs; an intern told "15 minutes" who has nothing after twenty submits
-  again, the script refuses the second submission, and the refusal reads as a
-  broken form.
+  So the page says the documents are prepared and emailed, and gives NO figure
+  and no sentence about how soon. Two unknowns in series cannot be summarised
+  into a promise, and an intern given one who has nothing by it submits again —
+  which the script refuses, and the refusal reads as a broken form.
 */
 
 const HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
@@ -406,12 +404,13 @@ export default function Onboarding() {
                         </Field>
                       </div>
 
-                      {/* Set the expectation BEFORE the button, not only after.
-                          Someone who reads it here does not refresh their inbox
-                          thirty seconds later. */}
+                      {/* Before the button, not only on the confirmation: that the
+                          documents are emailed rather than downloaded is worth
+                          knowing while deciding to submit. It says no more than
+                          that — the sentence about not arriving immediately was
+                          removed by direction. */}
                       <p className="text-[12.5px] mt-6" style={{ color: 'var(--text-tertiary)', lineHeight: 1.6, maxWidth: 'var(--measure-sm)' }}>
-                        Your documents are prepared after you submit and then emailed to you. They do not
-                        arrive the moment you press the button.
+                        Your documents are prepared after you submit and then emailed to you.
                       </p>
 
                       <div className="flex items-center gap-4" style={{ marginTop: 20 }}>
