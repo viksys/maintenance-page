@@ -44,11 +44,6 @@
  */
 
 /*
-  The delay window, in minutes. Each submission draws a fresh value in between,
-  so two interns submitting together do not get their letters in the same
-  second — which is what makes a batch look generated rather than sent.
-*/
-/*
   A marker for WHICH COPY OF THIS FILE IS ACTUALLY DEPLOYED.
 
   Saving the editor does not change what /exec serves — a deployment is a frozen
@@ -62,6 +57,11 @@
 */
 var SCRIPT_VERSION = '2026-10-09-aadhaar-transcript';
 
+/*
+  The delay window, in minutes. Each submission draws a fresh value in between,
+  so two interns submitting together do not get their letters in the same
+  second — which is what makes a batch look generated rather than sent.
+*/
 var DELAY_MIN_MINUTES = 5;
 var DELAY_MAX_MINUTES = 15;
 
@@ -89,7 +89,23 @@ var PENDING_PREFIX = 'deliver:';
   delete and obvious if it is not.
 */
 var FORWARD_INBOX = 'info@vikasanasystems.tech';
-var FORWARD_CC = 'mohanth@vikasanasystems.tech';
+var FORWARD_CC = 'mohanth.vikasana@gmail.com';
+
+/*
+  ON THE DIRECT PATH THIS IS A Bcc, NOT A Cc.
+
+  A Cc header is visible to everyone who receives the message. With SEND_AS set,
+  the candidate receives the mail itself — so a Cc to a @gmail.com address puts
+  that address in front of them, which is the single thing this whole
+  arrangement exists to prevent. Bcc copies the same mailbox without showing it.
+
+  On the forwarding path it stays a Cc: that message goes to FORWARD_INBOX and
+  no candidate sees it, and the Cc line is the instruction for whoever forwards.
+
+  Change `bcc` back to `cc` in sendAsAlias_ if the copy should be visible, or
+  better, point FORWARD_CC at a vikasanasystems.tech address and the question
+  disappears.
+*/
 
 /*
   ─────────────────────────────────────────────────────────────────────────────
@@ -117,7 +133,7 @@ var FORWARD_CC = 'mohanth@vikasanasystems.tech';
 
   Left blank, the forwarding flow above stays exactly as it is.
 */
-var SEND_AS = '';
+var SEND_AS = 'info@vikasanasystems.tech';
 
 /*
   Columns this file adds to the Candidates sheet, on top of the ones Code.gs's
@@ -183,7 +199,7 @@ var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
   Left blank, this falls back to Code.gs's getActive() so a bound project keeps
   working without being edited.
 */
-var SPREADSHEET_ID = '';
+var SPREADSHEET_ID = '14MNykpRqjrK6QFd-mGOhOfwB-NMnzgRw0LftBaKRKYs';
 
 /**
  * The sheet, reached the way this file needs rather than the way the menu does.
@@ -326,6 +342,20 @@ function setupWebForm() {
       'fail on every submission while this setup check passed. Paste the Candidates spreadsheet ID ' +
       '— the part of its URL between /d/ and /edit.');
   }
+  if (!SEND_AS && !FORWARD_INBOX) {
+    throw new Error('Both SEND_AS and FORWARD_INBOX are empty, so generated documents would have ' +
+                    'nowhere to go. Set SEND_AS to a verified alias, or FORWARD_INBOX to the mailbox ' +
+                    'that forwards them.');
+  }
+  if (SEND_AS && GmailApp.getAliases().indexOf(SEND_AS) < 0) {
+    /* Gmail ignores an unverified alias silently and sends from the account's
+       own address, so this would otherwise be discovered by a candidate
+       receiving mail from a @gmail.com address. */
+    throw new Error('SEND_AS is "' + SEND_AS + '" but that is not a verified alias on this account. ' +
+                    'Add and verify it under Gmail → Settings → Accounts and Import → "Send mail as", ' +
+                    'or clear SEND_AS to use the forwarding flow. Run listAliases() to see the list.');
+  }
+
   var ctx = ensureColumns_(sheetCtx_());
   DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
   checkTemplate_('OFFER_TEMPLATE_ID', CONFIG.OFFER_TEMPLATE_ID);
@@ -733,6 +763,13 @@ function sendToForwardInbox_(data, pdfs) {
  */
 function sendAsAlias_(data, pdfs) {
   if (GmailApp.getAliases().indexOf(SEND_AS) < 0) {
+    /* The fallback needs somewhere to go. An empty FORWARD_INBOX would make
+       GmailApp.sendEmail('') throw here, turning an unverified alias — a
+       configuration mistake with a safe recovery — into a failed delivery. */
+    if (!FORWARD_INBOX) {
+      throw new Error('SEND_AS "' + SEND_AS + '" is not a verified alias and FORWARD_INBOX is empty, ' +
+                      'so there is nowhere to send. Run listAliases(), and set one of the two.');
+    }
     console.error('SEND_AS "%s" is not a verified alias on this account — falling back to %s. Run listAliases().',
                   SEND_AS, FORWARD_INBOX);
     return sendToForwardInbox_(data, pdfs);
@@ -756,7 +793,9 @@ function sendAsAlias_(data, pdfs) {
     attachments: pdfs,
     name: CONFIG.SENDER_NAME,
     from: SEND_AS,
-    cc: FORWARD_CC,
+    /* bcc, not cc — see the note on FORWARD_CC. The candidate receives this
+       message, and a Cc header would show them the address. */
+    bcc: FORWARD_CC,
     replyTo: SEND_AS,
   });
 }
