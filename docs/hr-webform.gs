@@ -133,10 +133,47 @@ function setupWebForm() {
   }
   var ctx = sheetCtx_();
   DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
-  DocumentApp.openById(CONFIG.OFFER_TEMPLATE_ID);
-  DocumentApp.openById(CONFIG.NDA_TEMPLATE_ID);
+  checkTemplate_('OFFER_TEMPLATE_ID', CONFIG.OFFER_TEMPLATE_ID);
+  checkTemplate_('NDA_TEMPLATE_ID', CONFIG.NDA_TEMPLATE_ID);
   Logger.log('Ready. Sheet "%s" has %s data row(s). Templates and output folder reachable.',
              CONFIG.SHEET_NAME, ctx.sheet.getLastRow() - 1);
+}
+
+/**
+ * Opens one template and, when it will not open, says why.
+ *
+ * DocumentApp.openById answers "The document is inaccessible" for every failure
+ * — wrong id, no permission, or a file that is not a Google Doc at all — and
+ * names neither the file nor which of the two ids was at fault. The commonest
+ * cause by far is the third: the setup uploads TEMPLATE_*.docx and says to open
+ * each with Google Docs, which creates a SEPARATE Doc, and the id copied is
+ * often still the .docx's.
+ *
+ * Drive can see the file even when DocumentApp cannot, so the mime type is
+ * readable and the message can state the actual problem.
+ */
+function checkTemplate_(label, id) {
+  if (!id || /^PASTE_/.test(id)) {
+    throw new Error(label + ' is not filled in — paste the template Doc id into CONFIG in Code.gs.');
+  }
+
+  var file;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (err) {
+    throw new Error(label + ' (' + id + ') is not a file this account can open. ' +
+                    'Check the id, and that the template is in this account\'s Drive or shared with it.');
+  }
+
+  var mime = file.getMimeType();
+  if (mime !== MimeType.GOOGLE_DOCS) {
+    throw new Error(
+      label + ' points at "' + file.getName() + '", which is a ' + mime + ', not a Google Doc. ' +
+      'Apps Script can only fill a Google Doc. In Drive, right-click that file → Open with → Google Docs; ' +
+      'that creates a NEW Google Doc — copy ITS id from the URL (the part between /d/ and /edit) into CONFIG.');
+  }
+
+  DocumentApp.openById(id);
 }
 
 /* ───────────────────────────────────────────────────────────────── routing */
