@@ -104,6 +104,13 @@ export const ROUTES = {
     scripts/generate-seo.js filters everything named in scripts/hidden-routes.js,
     and the shell is written noindex with no canonical.
   */
+  '/onboarding': {
+    title: 'Intern Onboarding',
+    description: 'Confirm the details for your VIKASANA Systems offer letter and NDA.',
+    type: 'website',
+    priority: 0.1,
+  },
+
   '/meet-scheduler': {
     title: 'Schedule a Call',
     description: 'Pick a time for a short introductory call with VIKASANA Systems.',

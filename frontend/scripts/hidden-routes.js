@@ -40,6 +40,11 @@ const HIDDEN_ROUTES = new Set([
   /* Booking page for a specific set of interview slots. Shared by direct link
      only. See src/pages/MeetScheduler.js and docs/meet-scheduler.gs. */
   '/meet-scheduler',
+
+  /* Intern detail form for the offer letter and NDA. Shared by direct link with
+     incoming interns only. See src/pages/Onboarding.js and the VIKASANA HR
+     kit's WebForm.gs. */
+  '/onboarding',
 ]);
 
 module.exports = { HIDDEN_ROUTES };

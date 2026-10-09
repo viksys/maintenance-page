@@ -74,6 +74,12 @@ const Knowledge = lazyRoute(() => import('@/pages/Knowledge'));
    prerendered, so the link answers 200 rather than falling through to 404.html.
    Unlisted is not private; see the note in scripts/hidden-routes.js. */
 const MeetScheduler = lazyRoute(() => import('@/pages/MeetScheduler'));
+
+/* Unlisted, like MeetScheduler above and for the same reasons — see
+   scripts/hidden-routes.js. This one collects a home address and a mobile
+   number, so the note there about unlisted not meaning private matters more
+   here than it does on the booking page. */
+const Onboarding = lazyRoute(() => import('@/pages/Onboarding'));
 const NotFound = lazyRoute(() => import('@/pages/NotFound'));
 const VikasanaControl = lazyRoute(() => import('@/pages/VikasanaControl'));
 const VikasanaEdge = lazyRoute(() => import('@/pages/VikasanaEdge'));
@@ -242,6 +248,7 @@ function App() {
               <Route path="/site-map" element={<SiteMap />} />
               <Route path="/knowledge" element={<Knowledge />} />
               <Route path="/meet-scheduler" element={<MeetScheduler />} />
+              <Route path="/onboarding" element={<Onboarding />} />
               {/* Explicit not-found page. This route previously rendered <Home />,
               which returned the homepage at HTTP 200 for every mistyped or stale
               URL and invited crawlers to index them as real, canonical pages. */}
