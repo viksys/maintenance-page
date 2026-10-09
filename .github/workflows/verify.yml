@@ -178,17 +178,30 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=low
 
-      # The full tree, build chain included. A HARD GATE as of this pass.
+      # The full tree, build chain included. STILL A HARD GATE.
       #
-      # This step used to end in "|| true", because the build chain carried 133
-      # advisories that were believed unclearable from inside Create React App.
-      # They were clearable: the overrides block was holding nanoid BELOW the
-      # floor its own consumer (postcss) declares, and roughly a hundred of the
-      # highs cascaded from that one line. The tree now audits clean at every
-      # severity, so there is nothing left for this step to tolerate — and a
-      # step that tolerates everything reports nothing.
+      # This step used to end in "|| true", was made a hard `npm audit` when the
+      # tree was cleared, and is now scripts/check-audit.js. The instruction left
+      # with the hard version — "If this fails, raise the pin in the overrides
+      # block. Do not reinstate || true." — is the one being kept. It is not
+      # reinstated.
       #
-      # If this fails, raise the pin in the overrides block. Do not reinstate
-      # "|| true".
+      # What changed is that on 9 October 2026 two advisories landed with
+      # `range: *`: braces (GHSA-vfj7-8cjw-p6xm) and sprintf-js
+      # (GHSA-hp3w-g68c-fv3c). No published version of either is unaffected, so
+      # no override can clear them and npm's only "fix" is a major downgrade of
+      # react-scripts or a major upgrade of tailwind. A plain `npm audit` would
+      # fail from here on through no action of ours — and the usual answer, "||
+      # true", throws the check away entirely.
+      #
+      # check-audit.js keeps the gate and names the exceptions: every ROOT
+      # advisory must either be fixable, in which case fix it with an override,
+      # or be listed in that file with the reason it cannot reach anyone. A new
+      # advisory still fails this step. Four of the six roots in that pass WERE
+      # fixable and were fixed — compression, postcss-selector-parser,
+      # shell-quote and source-map-js — which is the behaviour the old comment
+      # was protecting.
+      #
+      # Production dependencies get no exceptions at all; that is the step above.
       - name: Audit full tree
-        run: npm audit --audit-level=low
+        run: npm run audit:check

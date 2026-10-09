@@ -48,6 +48,20 @@
   so two interns submitting together do not get their letters in the same
   second — which is what makes a batch look generated rather than sent.
 */
+/*
+  A marker for WHICH COPY OF THIS FILE IS ACTUALLY DEPLOYED.
+
+  Saving the editor does not change what /exec serves — a deployment is a frozen
+  snapshot, and only Manage deployments → edit → Version: New version replaces
+  it. That has now been missed three times, and each time the only way to find
+  out was to submit a form and infer the answer from how the script behaved,
+  which creates a test row and an email every attempt.
+
+  doGet reports this, so one GET answers the question. Bump it whenever this file
+  changes in a way worth confirming.
+*/
+var SCRIPT_VERSION = '2026-10-09-dob-university';
+
 var DELAY_MIN_MINUTES = 5;
 var DELAY_MAX_MINUTES = 15;
 
@@ -262,7 +276,16 @@ function checkTemplate_(label, id) {
 /* ───────────────────────────────────────────────────────────────── routing */
 
 function doGet() {
-  return jsonOut_({ ok: true, service: 'vikasana-intern-onboarding' });
+  return jsonOut_({
+    ok: true,
+    service: 'vikasana-intern-onboarding',
+    version: SCRIPT_VERSION,
+    /* Reported so the deployed configuration can be checked without submitting
+       anything: whether the delay is on, and whether mail goes direct or to the
+       forwarding inbox. */
+    delayMinutes: [DELAY_MIN_MINUTES, DELAY_MAX_MINUTES],
+    sendsAs: SEND_AS || ('forward via ' + FORWARD_INBOX),
+  });
 }
 
 function doPost(e) {

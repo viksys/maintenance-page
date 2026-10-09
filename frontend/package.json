@@ -42,7 +42,8 @@
     "links": "node scripts/check-links.js",
     "copy": "node scripts/check-drishtikon-copy.js",
     "render": "node scripts/render-check.js",
-    "verify": "npm run lint && npm run test:ci && npm run links && npm run copy && npm run render && npm run build:seo && npm run check:artifact && npm run smoke && npm run contrast"
+    "audit:check": "node scripts/check-audit.js",
+    "verify": "npm run lint && npm run test:ci && npm run links && npm run copy && npm run render && npm run build:seo && npm run check:artifact && npm run smoke && npm run contrast && npm run audit:check"
   },
   "browserslist": {
     "production": [
@@ -191,10 +192,14 @@
   ],
   "overrides": {
     "brace-expansion": "2.1.7",
+    "compression": "1.8.2",
+    "postcss-selector-parser": "7.1.6",
+    "source-map-js": "1.2.2",
+    "launch-editor": "2.14.2",
     "nth-check": "2.1.1",
     "postcss": "8.5.26",
     "serialize-javascript": "7.1.2",
-    "shell-quote": "1.10.0",
+    "shell-quote": "1.12.0",
     "follow-redirects": "1.16.0",
     "path-to-regexp": "0.1.13",
     "webpack-dev-server": "5.2.6",
