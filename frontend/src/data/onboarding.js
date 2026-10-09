@@ -2,9 +2,10 @@
   /onboarding — the intern detail form.
 
   Posts to the Apps Script in the VIKASANA HR kit (WebForm.gs, added beside
-  Code.gs in the project bound to the Candidates sheet). That script writes the
-  details into the intern's row and schedules the offer letter and NDA for a
-  random 10–15 minutes later.
+  Code.gs in the project that reaches the Candidates sheet). That script writes
+  the details into the intern's row, then generates the offer letter and the NDA
+  and mails them to info@vikasanasystems.tech to be forwarded — all inside the
+  request, which is why the page allows two minutes for a reply.
 
   The endpoint is not a secret: it is in the shipped bundle and anyone can read
   it. What protects the sheet is that the script only ever writes the fields an
@@ -23,15 +24,15 @@ export const ONBOARDING_ENDPOINT =
 export const ONBOARDING_READY = Boolean(ONBOARDING_ENDPOINT);
 
 /*
-  NO TIME IS PROMISED TO THE INTERN, AND THAT IS DELIBERATE.
+  NO TIME IS PROMISED TO THE INTERN, AND THAT IS STILL DELIBERATE.
 
-  The script's 10–15 minute delay is the wait before the documents are generated
-  and mailed to info@vikasanasystems.tech. They then reach the intern only when
-  someone there forwards them — so the figure describes our half of the process,
-  not theirs, and printing it on the confirmation would promise a delivery time
-  nothing in the chain guarantees.
+  The documents now leave for info@vikasanasystems.tech the moment the form is
+  submitted — the random 10–15 minute delay that used to sit in front of that is
+  gone. What has not changed is that the intern receives nothing until someone
+  forwards it, so there is still no delivery time this page can honestly print.
 
-  An intern told "15 minutes" who has nothing after twenty submits again, which
-  the script refuses, which reads as a broken form. The confirmation says the
-  documents are being prepared and gives an address to chase instead.
+  An intern given a figure who has nothing by it submits again, the script
+  refuses the second submission, and the refusal reads as a broken form. The
+  confirmation says the documents are being prepared and gives an address to
+  chase instead.
 */

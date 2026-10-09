@@ -7,8 +7,8 @@
  * this file beside it (Apps Script editor → Files → +), do not paste it over.
  *
  * What it adds: /onboarding on the website posts here. This writes the
- * candidate's own details into their row, then schedules generation for a random
- * 10–15 minutes later. The generation is Code.gs's; the email is not — the PDFs
+ * candidate's own details into their row and generates and sends the documents
+ * in the same request. The generation is Code.gs's; the email is not — the PDFs
  * go to info@vikasanasystems.tech to be forwarded, so the candidate never sees
  * the @gmail.com account this script runs as. See FORWARD_INBOX below.
  *
@@ -27,22 +27,24 @@
  * nothing at the /exec URL.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHY THE DELAY IS A TRIGGER AND NOT A SLEEP
+ * NO DELAY, AND NO TRIGGER
  * ─────────────────────────────────────────────────────────────────────────────
- * Utilities.sleep() inside doPost would hold the request open for a quarter of
- * an hour, and Apps Script kills an execution at six minutes — so the mail would
- * never be sent and the intern would watch a spinner until their browser gave
- * up. A one-time time-based trigger fires after the request has already
- * returned, which is also what lets the page answer immediately.
+ * An earlier version waited a random 10–15 minutes and used a one-time
+ * time-based trigger to do it, because Utilities.sleep() cannot hold a request
+ * that long — Apps Script kills an execution at six minutes.
+ *
+ * The delay is gone, so the trigger is too: generation and sending happen inside
+ * the request. That removes the whole machinery around it — the script
+ * properties that remembered which row a trigger belonged to, the deletion after
+ * firing, and the 20-trigger quota that made leaking them fatal.
+ *
+ * The cost is that the intern waits for it. Two document copies, two PDF
+ * exports and a send take tens of seconds, and the page has to allow for that —
+ * see TIMEOUT_MS in src/pages/Onboarding.js on the website.
  */
 
-/* The delay window, in minutes. Each submission draws a fresh value in between,
-   so two interns submitting together do not receive their letters in the same
-   second — which is what makes the batch look generated rather than sent. */
-var DELAY_MIN_MINUTES = 10;
-var DELAY_MAX_MINUTES = 15;
-
-/* Script property prefix: one entry per pending delivery, keyed by trigger id. */
+/* Script property prefix used by the retired scheduled path. Kept only so
+   clearPendingDeliveries() can tidy up triggers created before this change. */
 var PENDING_PREFIX = 'deliver:';
 
 /*
@@ -231,7 +233,7 @@ function receive_(body) {
       if (/^sent/i.test(status)) {
         return { ok: false, error: 'already', message: 'Your documents have already been sent. Please check your inbox, including spam.' };
       }
-      if (/^queued/i.test(status)) {
+      if (/^with /i.test(status) || /^queued/i.test(status)) {
         return { ok: false, error: 'already', message: 'We already have your details — your documents are on their way.' };
       }
     } else {
@@ -251,19 +253,21 @@ function receive_(body) {
     setCell_(ctx.sheet, ctx.headers, row, COL.ADDR2, addr2);
     setCell_(ctx.sheet, ctx.headers, row, COL.ADDR3, addr3);
 
-    var minutes = DELAY_MIN_MINUTES + Math.random() * (DELAY_MAX_MINUTES - DELAY_MIN_MINUTES);
-    var when = new Date(Date.now() + Math.round(minutes * 60 * 1000));
+    /*
+      Generated and sent in this request, not scheduled.
 
-    var trigger = ScriptApp.newTrigger('deliverScheduled_').timeBased().at(when).create();
-    PropertiesService.getScriptProperties().setProperty(PENDING_PREFIX + trigger.getUniqueId(), String(row));
-
-    /* Status is written AFTER the trigger exists. If trigger creation throws —
-       the quota is 20 per script — the row stays un-queued and the intern is
-       told it failed, instead of a row that claims a delivery nobody scheduled. */
-    setCell_(ctx.sheet, ctx.headers, row, COL.STATUS,
-             'Queued — sending ' + Utilities.formatDate(when, CONFIG.TIMEZONE, 'HH:mm'));
-
-    return { ok: true, minutes: Math.round(minutes) };
+      deliverRow_ records its own outcome in the Status column and does not
+      throw, so the return below reports what actually happened rather than
+      what was intended: an intern is not told their documents are on the way
+      when the generation has just failed.
+    */
+    var sent = deliverRow_(row);
+    if (!sent.ok) {
+      return { ok: false, error: 'generate',
+               message: 'We saved your details, but could not prepare the documents. ' +
+                        'Please write to info@vikasanasystems.tech — there is no need to submit again.' };
+    }
+    return { ok: true };
   } finally {
     lock.releaseLock();
   }
@@ -301,38 +305,20 @@ function normaliseName_(s) {
 /* ─────────────────────────────────────────────────────────────── delivery */
 
 /**
- * Fires once, some minutes after the submission that created it.
+ * Generates both documents and mails them to FORWARD_INBOX.
  *
- * Generation and email are Code.gs's — this does not reimplement either. It
- * cannot call processRows_ because that opens a UI dialog, and a trigger has no
- * UI: SpreadsheetApp.getUi() throws outside a document context.
+ * Returns { ok } rather than throwing: the caller is a web request that has to
+ * answer the intern either way, and a failure here is already written to the
+ * row's Status column for HR to find.
+ *
+ * Generation and the document filling are Code.gs's — this does not
+ * reimplement either. It cannot call processRows_, which opens a UI dialog that
+ * a web request has no way to show.
  */
-function deliverScheduled_(e) {
-  var props = PropertiesService.getScriptProperties();
-  var key = PENDING_PREFIX + (e && e.triggerUid);
-  var rowStr = props.getProperty(key);
-
-  /* Always clean up, whatever happens below. A one-time trigger survives its own
-     firing, and the limit is 20 per script — leaking them eventually makes every
-     further submission fail at the point of scheduling. */
-  try {
-    deleteTrigger_(e && e.triggerUid);
-  } catch (err) {
-    console.error('Could not delete trigger: %s', err);
-  }
-  props.deleteProperty(key);
-
-  if (!rowStr) {
-    console.error('Trigger fired with no pending row recorded (uid %s).', e && e.triggerUid);
-    return;
-  }
-  deliverRow_(Number(rowStr));
-}
-
 function deliverRow_(row) {
   var ctx = sheetCtx_();
   var name = String(cell_(ctx.sheet, ctx.headers, row, COL.NAME) || '').trim();
-  if (!name) { console.error('Row %s has no name; nothing sent.', row); return; }
+  if (!name) { console.error('Row %s has no name; nothing sent.', row); return { ok: false }; }
 
   try {
     var data = rowData_(ctx.sheet, ctx.headers, row);
@@ -360,12 +346,14 @@ function deliverRow_(row) {
     sendForForwarding_(data, pdfs);
     setCell_(ctx.sheet, ctx.headers, row, COL.STATUS, 'With ' + FORWARD_INBOX + ' — to forward');
     setCell_(ctx.sheet, ctx.headers, row, COL.SENT_AT, new Date());
+    return { ok: true };
   } catch (err) {
     /* The row records the failure so HR sees it on the sheet rather than only in
        an execution log nobody opens. The intern was told to expect the email in
        10–15 minutes and will not get one; this is the trail for chasing it. */
     console.error('Delivery failed for row %s: %s', row, err && err.stack ? err.stack : err);
     setCell_(ctx.sheet, ctx.headers, row, COL.STATUS, 'FAILED — ' + (err && err.message ? err.message : err));
+    return { ok: false };
   }
 }
 

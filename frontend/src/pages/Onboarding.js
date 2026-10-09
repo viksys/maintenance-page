@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SectionLabel from '@/components/SectionLabel';
@@ -55,7 +55,17 @@ import { ONBOARDING_ENDPOINT, ONBOARDING_READY } from '@/data/onboarding';
 */
 
 const HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
-const TIMEOUT_MS = 30000;
+
+/*
+  The documents are generated inside this request.
+
+  The script no longer schedules them for later — it copies two templates, fills
+  every tag, exports two PDFs and sends the mail before it answers. That is tens
+  of seconds, and 30s was not enough: the page would have reported a timeout
+  over a submission that was still working, which is the same false negative the
+  careers form used to show on a slow upload.
+*/
+const TIMEOUT_MS = 120000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function Onboarding() {
@@ -69,8 +79,21 @@ export default function Onboarding() {
   });
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
+  /* Animates the ellipsis while the request is open. The documents take tens of
+     seconds to build, and a label that never changes looks like one that has
+     stopped. */
+  const [dots, setDots] = useState(1);
   /* null | { ok: true, minutes } | { ok: false, message } */
   const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    if (!sending) {
+      setDots(1);
+      return undefined;
+    }
+    const id = setInterval(() => setDots((d) => (d % 3) + 1), 400);
+    return () => clearInterval(id);
+  }, [sending]);
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -345,14 +368,24 @@ export default function Onboarding() {
                           Someone who reads it here does not refresh their inbox
                           thirty seconds later. */}
                       <p className="text-[12.5px] mt-6" style={{ color: 'var(--text-tertiary)', lineHeight: 1.6, maxWidth: 'var(--measure-sm)' }}>
-                        Your documents are prepared after you submit and sent by email. They do not arrive
-                        immediately.
+                        Your documents are prepared while you wait — this takes a few seconds. They are then
+                        emailed to you, so they do not land in your inbox the moment you submit.
                       </p>
 
                       <div className="flex items-center gap-4" style={{ marginTop: 20 }}>
-                        <FlowButton type="submit" variant="ink" text={sending ? 'Submitting…' : 'Submit Details'} />
-                        <span aria-live="polite" role="status" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                          {sending ? 'Submitting…' : ''}
+                        <FlowButton type="submit" variant="ink" text={sending ? 'Preparing…' : 'Submit Details'} />
+                        {/* The word sits alone in the live region and the dots
+                            are aria-hidden beside it: a live region whose text
+                            changes every 400ms is announced every 400ms. */}
+                        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                          <span aria-live="polite" role="status">
+                            {sending ? 'Preparing your documents' : ''}
+                          </span>
+                          {sending && (
+                            <span aria-hidden="true" style={{ fontFamily: 'var(--font-mono)' }}>
+                              {'.'.repeat(dots)}
+                            </span>
+                          )}
                         </span>
                       </div>
 
