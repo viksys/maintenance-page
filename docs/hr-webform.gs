@@ -27,20 +27,21 @@
  * nothing at the /exec URL.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * THE DELAY IS A TRIGGER, NOT A SLEEP
+ * GENERATE ON SUBMIT, EMAIL ON APPROVAL
  * ─────────────────────────────────────────────────────────────────────────────
- * Utilities.sleep() inside doPost cannot hold a request for minutes — Apps
- * Script kills an execution at six — so the mail would never be sent and the
- * intern would watch a spinner until their browser gave up. A one-time
- * time-based trigger fires after the response has already gone, which is also
- * what lets the page answer in a second or two instead of waiting ~18s for two
- * PDF exports.
+ * A submission writes the row and generates both PDFs into Drive. It sends
+ * nothing. The Status column reads "Generated — awaiting approval", and the
+ * Approved column is where someone decides.
  *
- * What that costs: one trigger per pending submission, a script property
- * remembering which row each belongs to, and deletion after firing. The quota
- * is 20 per script, so a leak would eventually fail every later submission —
- * deliverScheduled_ deletes its own trigger before doing anything else, and
- * clearPendingDeliveries() clears the backlog if they ever accumulate anyway.
+ * Mailing is a separate, deliberate act: VIKASANA HR → "Email approved
+ * candidates", or sendApprovedDocuments() from the editor. It emails every row
+ * that is approved and not already sent, attaching the PDFs that were generated
+ * at submission — not regenerated ones, so what arrives is what was approved.
+ *
+ * This replaces a random 5–15 minute delay implemented with a one-time trigger.
+ * The delay existed to stagger a batch; an approval step does that and adds the
+ * thing the delay never gave anyone — a chance to look at the documents before
+ * a candidate does.
  */
 
 /*
@@ -55,18 +56,24 @@
   doGet reports this, so one GET answers the question. Bump it whenever this file
   changes in a way worth confirming.
 */
-var SCRIPT_VERSION = '2026-10-09-aadhaar-transcript';
+var SCRIPT_VERSION = '2026-10-09-approval-gate';
 
 /*
-  The delay window, in minutes. Each submission draws a fresh value in between,
-  so two interns submitting together do not get their letters in the same
-  second — which is what makes a batch look generated rather than sent.
+  Script property prefix used by the retired scheduled path. Kept only so
+  clearPendingDeliveries() can tidy up triggers created before the approval gate
+  replaced the delay.
 */
-var DELAY_MIN_MINUTES = 5;
-var DELAY_MAX_MINUTES = 15;
-
-/* Script property prefix: one entry per pending delivery, keyed by trigger id. */
 var PENDING_PREFIX = 'deliver:';
+
+/*
+  The approval column. A row is emailed only once this says yes.
+
+  A checkbox (TRUE), or any of yes / y / approved, in any case. Several spellings
+  because the column will be ticked by people, not by code, and a row that was
+  approved but written "Yes " or "APPROVED" should not sit unsent while nobody
+  can see why.
+*/
+var COL_APPROVED = 'Approved';
 
 /*
   ─────────────────────────────────────────────────────────────────────────────
@@ -308,7 +315,7 @@ function signatureAgrees_(ext, bytes) {
 }
 
 function ensureColumns_(ctx) {
-  var wanted = [COL_DOB, COL_UNIVERSITY, COL_AADHAAR, COL_AADHAAR_FILE, COL_TRANSCRIPT_FILE];
+  var wanted = [COL_DOB, COL_UNIVERSITY, COL_AADHAAR, COL_AADHAAR_FILE, COL_TRANSCRIPT_FILE, COL_APPROVED];
   var missing = wanted.filter(function (h) { return ctx.headers.indexOf(h) < 0; });
   if (!missing.length) return ctx;
 
@@ -496,8 +503,8 @@ function receive_(body) {
       if (/^sent/i.test(status)) {
         return { ok: false, error: 'already', message: 'Your documents have already been sent. Please check your inbox, including spam.' };
       }
-      if (/^with /i.test(status) || /^queued/i.test(status)) {
-        return { ok: false, error: 'already', message: 'We already have your details — your documents are on their way.' };
+      if (/^generated/i.test(status) || /^with /i.test(status) || /^queued/i.test(status)) {
+        return { ok: false, error: 'already', message: 'We already have your details. Your documents are being prepared and will be emailed to you.' };
       }
     } else {
       /* Not seeded. Append rather than refuse: an intern whose name HR spelled
@@ -537,19 +544,19 @@ function receive_(body) {
     if (!tr.ok) return { ok: false, error: 'transcriptFile', message: tr.message };
     setCell_(ctx.sheet, ctx.headers, row, COL_TRANSCRIPT_FILE, tr.url);
 
-    var minutes = DELAY_MIN_MINUTES + Math.random() * (DELAY_MAX_MINUTES - DELAY_MIN_MINUTES);
-    var when = new Date(Date.now() + Math.round(minutes * 60 * 1000));
-
-    var trigger = ScriptApp.newTrigger('deliverScheduled_').timeBased().at(when).create();
-    PropertiesService.getScriptProperties().setProperty(PENDING_PREFIX + trigger.getUniqueId(), String(row));
-
-    /* Status is written AFTER the trigger exists. If creating it throws — the
-       quota is 20 per script — the row stays un-queued and the intern is told it
-       failed, rather than a row claiming a delivery nobody scheduled. */
-    setCell_(ctx.sheet, ctx.headers, row, COL.STATUS,
-             'Queued — sending ' + Utilities.formatDate(when, CONFIG.TIMEZONE, 'HH:mm'));
-
-    return { ok: true, minutes: Math.round(minutes) };
+    /*
+      Generated here, emailed later. generateRow_ writes its own outcome to the
+      Status column and returns { ok } rather than throwing, so the answer below
+      reports what happened: an intern is not told their documents are ready
+      when the generation has just failed.
+    */
+    var made = generateRow_(row);
+    if (!made.ok) {
+      return { ok: false, error: 'generate',
+               message: 'We saved your details, but could not prepare the documents. ' +
+                        'Please write to info@vikasanasystems.tech — there is no need to submit again.' };
+    }
+    return { ok: true };
   } finally {
     lock.releaseLock();
   }
@@ -587,45 +594,16 @@ function normaliseName_(s) {
 /* ─────────────────────────────────────────────────────────────── delivery */
 
 /**
- * Fires once, some minutes after the submission that created it.
- *
- * The trigger is deleted FIRST, before any work that could throw. A one-time
- * trigger survives its own firing, and at 20 per script a leak would eventually
- * stop every further submission at the point of scheduling — so losing the
- * trigger matters more than losing this delivery, which the Status column
- * records either way.
- */
-function deliverScheduled_(e) {
-  var props = PropertiesService.getScriptProperties();
-  var key = PENDING_PREFIX + (e && e.triggerUid);
-  var rowStr = props.getProperty(key);
-
-  try {
-    deleteTrigger_(e && e.triggerUid);
-  } catch (err) {
-    console.error('Could not delete trigger: %s', err);
-  }
-  props.deleteProperty(key);
-
-  if (!rowStr) {
-    console.error('Trigger fired with no pending row recorded (uid %s).', e && e.triggerUid);
-    return;
-  }
-  deliverRow_(Number(rowStr));
-}
-
-/**
- * Generates both documents and mails them to FORWARD_INBOX.
+ * Builds both PDFs for one row and records them. SENDS NOTHING.
  *
  * Returns { ok } rather than throwing: the caller is a web request that has to
  * answer the intern either way, and a failure here is already written to the
  * row's Status column for HR to find.
  *
- * Generation and the document filling are Code.gs's — this does not
- * reimplement either. It cannot call processRows_, which opens a UI dialog that
- * a web request has no way to show.
+ * The document filling is Code.gs's makeDoc_ — this does not reimplement it. It
+ * cannot call processRows_, which opens a UI dialog a web request cannot show.
  */
-function deliverRow_(row) {
+function generateRow_(row) {
   var ctx = ensureColumns_(sheetCtx_());
   var name = String(cell_(ctx.sheet, ctx.headers, row, COL.NAME) || '').trim();
   if (!name) { console.error('Row %s has no name; nothing sent.', row); return { ok: false }; }
@@ -646,35 +624,123 @@ function deliverRow_(row) {
 
     var folder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
     var docs = String(data._docs || 'Both').toLowerCase();
-    var pdfs = [];
 
     if (docs === 'both' || docs.indexOf('offer') >= 0) {
       var offer = makeDoc_(CONFIG.OFFER_TEMPLATE_ID, 'Offer Letter — ' + name, data, folder);
       setCell_(ctx.sheet, ctx.headers, row, COL.OFFER_DOC, offer.getUrl());
-      pdfs.push(offer);
     }
     if (docs === 'both' || docs.indexOf('nda') >= 0) {
       var nda = makeDoc_(CONFIG.NDA_TEMPLATE_ID, 'NDA — ' + name, data, folder);
       setCell_(ctx.sheet, ctx.headers, row, COL.NDA_DOC, nda.getUrl());
-      pdfs.push(nda);
     }
 
-    /* sendForForwarding_, not Code.gs's sendMail_. The menu path in Code.gs is
-       deliberately left alone — it still mails the candidate directly, which is
-       the right behaviour when a person has chosen the row and can see who it
-       is going to. */
-    sendForForwarding_(data, pdfs);
-    setCell_(ctx.sheet, ctx.headers, row, COL.STATUS, 'With ' + FORWARD_INBOX + ' — to forward');
-    setCell_(ctx.sheet, ctx.headers, row, COL.SENT_AT, new Date());
+    /* No email here. The row now waits for the Approved column; see
+       sendApprovedDocuments(). */
+    setCell_(ctx.sheet, ctx.headers, row, COL.STATUS, 'Generated — awaiting approval');
     return { ok: true };
   } catch (err) {
     /* The row records the failure so HR sees it on the sheet rather than only in
-       an execution log nobody opens. The intern was told to expect the email in
-       10–15 minutes and will not get one; this is the trail for chasing it. */
-    console.error('Delivery failed for row %s: %s', row, err && err.stack ? err.stack : err);
+       an execution log nobody opens. */
+    console.error('Generation failed for row %s: %s', row, err && err.stack ? err.stack : err);
     setCell_(ctx.sheet, ctx.headers, row, COL.STATUS, 'FAILED — ' + (err && err.message ? err.message : err));
     return { ok: false };
   }
+}
+
+/* ──────────────────────────────────────────────────────────── the approval */
+
+/**
+ * Emails every approved row that has not been sent. THE ONE THING THAT SENDS.
+ *
+ * Run it from VIKASANA HR → "Email approved candidates", or from the editor.
+ * Attaches the PDFs generated at submission rather than regenerating them, so
+ * what reaches the candidate is what was looked at and approved — a regenerated
+ * document could differ if the template or the row changed in between, and the
+ * approval would then apply to something nobody saw.
+ */
+function sendApprovedDocuments() {
+  var ctx = ensureColumns_(sheetCtx_());
+  var last = ctx.sheet.getLastRow();
+  var sent = [], skipped = [], failed = [];
+
+  for (var r = 2; r <= last; r++) {
+    var name = String(cell_(ctx.sheet, ctx.headers, r, COL.NAME) || '').trim();
+    if (!name) continue;
+
+    var status = String(cell_(ctx.sheet, ctx.headers, r, COL.STATUS) || '').trim();
+    if (/^sent/i.test(status)) continue;                 /* already gone, silently */
+    if (!isApproved_(cell_(ctx.sheet, ctx.headers, r, COL_APPROVED))) {
+      skipped.push(name + ' — not approved');
+      continue;
+    }
+
+    try {
+      var data = rowData_(ctx.sheet, ctx.headers, r);
+      if (!data.EMAIL) throw new Error('no email on the row');
+      data.DOB = String(cell_(ctx.sheet, ctx.headers, r, COL_DOB) || '').trim();
+      data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, r, COL_UNIVERSITY) || '').trim();
+      data.AADHAAR_NO = String(cell_(ctx.sheet, ctx.headers, r, COL_AADHAAR) || '').replace(/^'/, '').trim();
+
+      var pdfs = [];
+      var offerUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.OFFER_DOC) || '');
+      var ndaUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.NDA_DOC) || '');
+      if (offerUrl) pdfs.push(fileFromUrl_(offerUrl));
+      if (ndaUrl) pdfs.push(fileFromUrl_(ndaUrl));
+
+      /* Refuse rather than send an empty envelope. A row approved before its
+         documents existed is a mistake worth stopping at, not papering over. */
+      if (!pdfs.length) throw new Error('no generated PDF on the row — generate before approving');
+
+      sendForForwarding_(data, pdfs);
+      setCell_(ctx.sheet, ctx.headers, r, COL.STATUS,
+               SEND_AS ? 'Sent — awaiting signature' : 'With ' + FORWARD_INBOX + ' — to forward');
+      setCell_(ctx.sheet, ctx.headers, r, COL.SENT_AT, new Date());
+      sent.push(name);
+    } catch (err) {
+      console.error('Send failed for row %s: %s', r, err && err.stack ? err.stack : err);
+      setCell_(ctx.sheet, ctx.headers, r, COL.STATUS, 'FAILED — ' + (err && err.message ? err.message : err));
+      failed.push(name + ': ' + (err && err.message ? err.message : err));
+    }
+  }
+
+  var summary = 'Sent ' + sent.length + (sent.length ? ': ' + sent.join(', ') : '') +
+    (skipped.length ? '\nSkipped ' + skipped.length + ': ' + skipped.join(', ') : '') +
+    (failed.length ? '\nFAILED ' + failed.length + ':\n  ' + failed.join('\n  ') : '');
+  Logger.log(summary);
+
+  /* Only when a person is watching. The same function runs from the editor and
+     from a menu, and getUi() throws when there is no document open. */
+  try {
+    SpreadsheetApp.getUi().alert(summary);
+  } catch (ignored) {
+    /* editor run — the log is the output */
+  }
+  return summary;
+}
+
+/**
+ * Whether the Approved cell says yes.
+ *
+ * A checkbox gives a real boolean; a person gives "Yes", "yes ", "Y" or
+ * "Approved". All of them count, because the column is filled in by hand and a
+ * row left unsent over its capitalisation is a fault nobody can see.
+ */
+function isApproved_(v) {
+  if (v === true) return true;
+  return /^(y|yes|approved|true)$/i.test(String(v == null ? '' : v).trim());
+}
+
+/**
+ * The Drive file behind a URL written into the sheet.
+ *
+ * The PDF columns hold getUrl() values, so the id has to come back out of one.
+ * Both shapes Drive uses are handled; anything else throws with the URL in the
+ * message rather than returning undefined into an attachments array.
+ */
+function fileFromUrl_(url) {
+  var m = /\/d\/([a-zA-Z0-9_-]{20,})/.exec(url) || /[?&]id=([a-zA-Z0-9_-]{20,})/.exec(url);
+  if (!m) throw new Error('could not read a file id from "' + url + '"');
+  return DriveApp.getFileById(m[1]);
 }
 
 /**

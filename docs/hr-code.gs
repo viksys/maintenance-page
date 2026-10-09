@@ -48,6 +48,11 @@ function onOpen() {
     .addItem('Generate only (no email) — selected rows', 'generateSelected')
     .addSeparator()
     .addItem('Generate + email — all rows not yet Sent', 'sendAllPending')
+    .addSeparator()
+    /* The website form's half: /onboarding generates on submission and sends
+       nothing, so this is what actually mails those candidates. Defined in
+       WebForm.gs; the menu lives here because a project gets one onOpen. */
+    .addItem('Email approved candidates (from the form)', 'sendApprovedDocuments')
     .addToUi();
 }
 

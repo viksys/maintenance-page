@@ -41,15 +41,14 @@ import { ONBOARDING_ENDPOINT, ONBOARDING_READY } from '@/data/onboarding';
   THE WAIT IS NAMED BUT NOT TIMED
   ─────────────────────────────────────────────────────────────────────────────
 
-  The script waits a random 5–15 minutes, then mails the documents to
-  info@vikasanasystems.tech — and they reach the intern only when someone there
-  forwards them, because Apps Script cannot send as anything but the account it
-  runs on and an offer letter should not arrive from a gmail address.
+  Submitting GENERATES the documents and sends nothing. They are emailed only
+  once someone at VIKASANA has approved the row — a deliberate act, from a menu
+  in the sheet.
 
-  So the page says the documents are prepared and emailed, and gives NO figure
-  and no sentence about how soon. Two unknowns in series cannot be summarised
-  into a promise, and an intern given one who has nothing by it submits again —
-  which the script refuses, and the refusal reads as a broken form.
+  So the page gives no figure and no sentence about how soon. The wait is a
+  person's attention, which cannot be predicted, and an intern given a number
+  who has nothing by it submits again — which the script refuses, and the
+  refusal reads as a broken form.
 */
 
 const HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
@@ -338,9 +337,9 @@ export default function Onboarding() {
                 <div role="status" style={{ maxWidth: 'var(--measure)' }}>
                   <h2 className="h-display fs-h3 mb-4">Thank you — that is with us.</h2>
                   <p className="text-[14px] mb-4" style={{ color: 'var(--text-tertiary)' }}>
-                    Your offer letter and NDA are being prepared and will be emailed to{' '}
-                    <strong style={{ color: 'var(--ink)' }}>{form.email.trim()}</strong>. Check that address is
-                    right — it is where the documents go.
+                    Your offer letter and NDA have been prepared. They will be emailed to{' '}
+                    <strong style={{ color: 'var(--ink)' }}>{form.email.trim()}</strong> once we have checked
+                    them. Make sure that address is right — it is where the documents go.
                   </p>
                   {/* Said plainly, because the alternative is an intern deciding
                       it failed and submitting again — which the script refuses,
@@ -546,7 +545,8 @@ export default function Onboarding() {
                           that — the sentence about not arriving immediately was
                           removed by direction. */}
                       <p className="text-[12.5px] mt-6" style={{ color: 'var(--text-tertiary)', lineHeight: 1.6, maxWidth: 'var(--measure-sm)' }}>
-                        Your documents are prepared after you submit and then emailed to you.
+                        Your documents are prepared when you submit, then checked by us and emailed to
+                        you.
                       </p>
 
                       <div className="flex items-center gap-4" style={{ marginTop: 20 }}>
