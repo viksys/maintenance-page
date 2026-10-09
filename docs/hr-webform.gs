@@ -127,11 +127,22 @@ function setupWebForm() {
       /^PASTE_/.test(CONFIG.OUTPUT_FOLDER_ID)) {
     throw new Error('CONFIG in Code.gs still has PASTE_ placeholders — fill in the two template IDs and the output folder ID first.');
   }
-  if (!SPREADSHEET_ID && !SpreadsheetApp.getActive()) {
+  /*
+    SPREADSHEET_ID IS REQUIRED, EVEN IN A BOUND PROJECT.
+
+    The first version of this check only complained when getActive() was also
+    null — so a bound project passed setup with SPREADSHEET_ID empty, and then
+    every form submission failed. getActive() returns the bound document when
+    the code runs FROM the document, and null in a web app and in a trigger,
+    which is where everything in this file runs. Setup passing therefore proved
+    nothing about the thing that matters.
+  */
+  if (!SPREADSHEET_ID) {
     throw new Error(
-      'This project is not bound to a spreadsheet, so SpreadsheetApp.getActive() is null. ' +
-      'Paste the Candidates spreadsheet ID into SPREADSHEET_ID at the top of WebForm.gs — ' +
-      'it is the part of the sheet URL between /d/ and /edit.');
+      'SPREADSHEET_ID at the top of WebForm.gs is empty. It is required even if this project is ' +
+      'bound to the sheet: SpreadsheetApp.getActive() is null inside a web app, so the form would ' +
+      'fail on every submission while this setup check passed. Paste the Candidates spreadsheet ID ' +
+      '— the part of its URL between /d/ and /edit.');
   }
   var ctx = sheetCtx_();
   DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
@@ -192,6 +203,19 @@ function doPost(e) {
     return jsonOut_(receive_(body));
   } catch (err) {
     console.error(err && err.stack ? err.stack : err);
+    /*
+      The commonest cause by far has one signature, and it is worth naming
+      rather than hiding behind "something went wrong": SPREADSHEET_ID empty in
+      a bound project, where getActive() is null in a web app and sheet_()
+      dereferences it. Reported as a configuration error so whoever deployed it
+      can act, rather than as a fault the intern might retry into.
+    */
+    var msg = String((err && err.message) || err);
+    if (!SPREADSHEET_ID && /getSheetByName|null/.test(msg)) {
+      return jsonOut_({ ok: false, error: 'config',
+                        message: 'This form is not configured yet. Please write to info@vikasanasystems.tech.',
+                        detail: 'SPREADSHEET_ID is empty in WebForm.gs' });
+    }
     return jsonOut_({ ok: false, error: 'server', message: 'Something went wrong. Please try again.' });
   }
 }
