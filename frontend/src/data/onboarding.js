@@ -16,7 +16,9 @@
   intern believes their details are in and nobody finds out until the documents
   do not arrive.
 */
-export const ONBOARDING_ENDPOINT = process.env.REACT_APP_ONBOARDING_ENDPOINT || '';
+export const ONBOARDING_ENDPOINT =
+  process.env.REACT_APP_ONBOARDING_ENDPOINT ||
+  'https://script.google.com/macros/s/AKfycbwe1UeuUYHm8HSszlyjGBdJt_C8RZeRiFxzRQsj62hw08bREYGfquRNUV1G-gesSZMg/exec';
 
 export const ONBOARDING_READY = Boolean(ONBOARDING_ENDPOINT);
 
