@@ -416,9 +416,9 @@ function doGet() {
     service: 'vikasana-intern-onboarding',
     version: SCRIPT_VERSION,
     /* Reported so the deployed configuration can be checked without submitting
-       anything: whether the delay is on, and whether mail goes direct or to the
-       forwarding inbox. */
-    delayMinutes: [DELAY_MIN_MINUTES, DELAY_MAX_MINUTES],
+       anything: that nothing sends until a row is approved, and whether mail
+       then goes direct or to the forwarding inbox. */
+    sends: 'on approval — run sendApprovedDocuments()',
     sendsAs: SEND_AS || ('forward via ' + FORWARD_INBOX),
   });
 }

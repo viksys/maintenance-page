@@ -43,7 +43,8 @@
     "copy": "node scripts/check-drishtikon-copy.js",
     "render": "node scripts/render-check.js",
     "audit:check": "node scripts/check-audit.js",
-    "verify": "npm run lint && npm run test:ci && npm run links && npm run copy && npm run render && npm run build:seo && npm run check:artifact && npm run smoke && npm run contrast && npm run audit:check"
+    "check:gs": "node scripts/check-gs.js",
+    "verify": "npm run lint && npm run test:ci && npm run links && npm run copy && npm run render && npm run build:seo && npm run check:artifact && npm run smoke && npm run contrast && npm run audit:check && npm run check:gs"
   },
   "browserslist": {
     "production": [
