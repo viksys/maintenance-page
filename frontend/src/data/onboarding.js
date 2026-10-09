@@ -3,9 +3,9 @@
 
   Posts to the Apps Script in the VIKASANA HR kit (WebForm.gs, added beside
   Code.gs in the project that reaches the Candidates sheet). That script writes
-  the details into the intern's row, then generates the offer letter and the NDA
-  and mails them to info@vikasanasystems.tech to be forwarded — all inside the
-  request, which is why the page allows two minutes for a reply.
+  the details into the intern's row and schedules the offer letter and the NDA
+  for a random 5–15 minutes later; they are then mailed to
+  info@vikasanasystems.tech to be forwarded.
 
   The endpoint is not a secret: it is in the shipped bundle and anyone can read
   it. What protects the sheet is that the script only ever writes the fields an
@@ -26,10 +26,10 @@ export const ONBOARDING_READY = Boolean(ONBOARDING_ENDPOINT);
 /*
   NO TIME IS PROMISED TO THE INTERN, AND THAT IS STILL DELIBERATE.
 
-  The documents now leave for info@vikasanasystems.tech the moment the form is
-  submitted — the random 10–15 minute delay that used to sit in front of that is
-  gone. What has not changed is that the intern receives nothing until someone
-  forwards it, so there is still no delivery time this page can honestly print.
+  The script waits a random 5–15 minutes before the documents are generated and
+  mailed to info@vikasanasystems.tech, and the intern receives nothing until
+  someone there forwards them. Two unknowns in series, so there is no delivery
+  time this page can honestly print.
 
   An intern given a figure who has nothing by it submits again, the script
   refuses the second submission, and the refusal reads as a broken form. The

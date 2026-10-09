@@ -27,24 +27,31 @@
  * nothing at the /exec URL.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * NO DELAY, AND NO TRIGGER
+ * THE DELAY IS A TRIGGER, NOT A SLEEP
  * ─────────────────────────────────────────────────────────────────────────────
- * An earlier version waited a random 10–15 minutes and used a one-time
- * time-based trigger to do it, because Utilities.sleep() cannot hold a request
- * that long — Apps Script kills an execution at six minutes.
+ * Utilities.sleep() inside doPost cannot hold a request for minutes — Apps
+ * Script kills an execution at six — so the mail would never be sent and the
+ * intern would watch a spinner until their browser gave up. A one-time
+ * time-based trigger fires after the response has already gone, which is also
+ * what lets the page answer in a second or two instead of waiting ~18s for two
+ * PDF exports.
  *
- * The delay is gone, so the trigger is too: generation and sending happen inside
- * the request. That removes the whole machinery around it — the script
- * properties that remembered which row a trigger belonged to, the deletion after
- * firing, and the 20-trigger quota that made leaking them fatal.
- *
- * The cost is that the intern waits for it. Two document copies, two PDF
- * exports and a send take tens of seconds, and the page has to allow for that —
- * see TIMEOUT_MS in src/pages/Onboarding.js on the website.
+ * What that costs: one trigger per pending submission, a script property
+ * remembering which row each belongs to, and deletion after firing. The quota
+ * is 20 per script, so a leak would eventually fail every later submission —
+ * deliverScheduled_ deletes its own trigger before doing anything else, and
+ * clearPendingDeliveries() clears the backlog if they ever accumulate anyway.
  */
 
-/* Script property prefix used by the retired scheduled path. Kept only so
-   clearPendingDeliveries() can tidy up triggers created before this change. */
+/*
+  The delay window, in minutes. Each submission draws a fresh value in between,
+  so two interns submitting together do not get their letters in the same
+  second — which is what makes a batch look generated rather than sent.
+*/
+var DELAY_MIN_MINUTES = 5;
+var DELAY_MAX_MINUTES = 15;
+
+/* Script property prefix: one entry per pending delivery, keyed by trigger id. */
 var PENDING_PREFIX = 'deliver:';
 
 /*
@@ -99,6 +106,23 @@ var FORWARD_CC = 'mohanth@vikasanasystems.tech';
 var SEND_AS = '';
 
 /*
+  Columns this file adds to the Candidates sheet, on top of the ones Code.gs's
+  COL already names. ensureColumns_ appends any that are missing, so the sheet
+  does not have to be edited by hand and an older sheet keeps working.
+
+  The headers are also the {{TAGS}}: DOB becomes {{DOB}} and University becomes
+  {{UNIVERSITY}} in the templates, because makeDoc_ replaces every key of the
+  data object it is given.
+
+  THE TEMPLATES DO NOT HAVE THOSE TAGS YET. Nothing breaks without them — a tag
+  that is not in the document is simply never substituted — but the values will
+  sit on the sheet and appear nowhere on the letter until {{DOB}} and
+  {{UNIVERSITY}} are typed into the Google Doc templates where they belong.
+*/
+var COL_DOB = 'DOB';
+var COL_UNIVERSITY = 'University';
+
+/*
   ─────────────────────────────────────────────────────────────────────────────
   THE SPREADSHEET IS NAMED, NOT ASSUMED
   ─────────────────────────────────────────────────────────────────────────────
@@ -148,6 +172,24 @@ function sheetCtx_() {
   return { sheet: sheet, headers: headers };
 }
 
+/**
+ * Appends any of our extra columns the sheet does not have yet, and returns a
+ * fresh context so the caller's header list includes them.
+ *
+ * Headers are matched by name throughout — Code.gs's col_ looks them up rather
+ * than assuming positions — so appending at the end cannot disturb anything.
+ */
+function ensureColumns_(ctx) {
+  var wanted = [COL_DOB, COL_UNIVERSITY];
+  var missing = wanted.filter(function (h) { return ctx.headers.indexOf(h) < 0; });
+  if (!missing.length) return ctx;
+
+  var start = ctx.sheet.getLastColumn() + 1;
+  ctx.sheet.getRange(1, start, 1, missing.length).setValues([missing]).setFontWeight('bold');
+  Logger.log('Added column(s): %s', missing.join(', '));
+  return sheetCtx_();
+}
+
 /* ───────────────────────────────────────────────────────────── first run */
 
 function setupWebForm() {
@@ -172,7 +214,7 @@ function setupWebForm() {
       'fail on every submission while this setup check passed. Paste the Candidates spreadsheet ID ' +
       '— the part of its URL between /d/ and /edit.');
   }
-  var ctx = sheetCtx_();
+  var ctx = ensureColumns_(sheetCtx_());
   DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
   checkTemplate_('OFFER_TEMPLATE_ID', CONFIG.OFFER_TEMPLATE_ID);
   checkTemplate_('NDA_TEMPLATE_ID', CONFIG.NDA_TEMPLATE_ID);
@@ -257,6 +299,8 @@ function receive_(body) {
   var addr1  = trim_(body.address1, 160);
   var addr2  = trim_(body.address2, 160);
   var addr3  = trim_(body.address3, 160);
+  var dob    = trim_(body.dob, 40);
+  var univ   = trim_(body.university, 160);
 
   if (!name)  return { ok: false, error: 'name',  message: 'Please give your full name.' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
@@ -264,6 +308,8 @@ function receive_(body) {
   }
   if (!mobile) return { ok: false, error: 'mobile', message: 'A mobile number is required.' };
   if (!addr1)  return { ok: false, error: 'address1', message: 'Please give your address.' };
+  if (!dob)    return { ok: false, error: 'dob', message: 'Please give your date of birth.' };
+  if (!univ)   return { ok: false, error: 'university', message: 'Please give your university or college.' };
 
   /* One submission at a time. Two interns posting together would otherwise both
      read the last row and both append to it, and the second would overwrite the
@@ -274,7 +320,7 @@ function receive_(body) {
   }
 
   try {
-    var ctx = sheetCtx_();
+    var ctx = ensureColumns_(sheetCtx_());
     var row = findRow_(ctx, name, email);
 
     if (row) {
@@ -304,22 +350,26 @@ function receive_(body) {
     setCell_(ctx.sheet, ctx.headers, row, COL.ADDR1, addr1);
     setCell_(ctx.sheet, ctx.headers, row, COL.ADDR2, addr2);
     setCell_(ctx.sheet, ctx.headers, row, COL.ADDR3, addr3);
+    /* Written as text, not a Date. The form sends yyyy-mm-dd and the letter
+       wants it readable; converting here would hand Sheets a value it reformats
+       by locale, and the tag would then print whatever the cell happened to
+       display. formatDob_ decides the wording once, visibly. */
+    setCell_(ctx.sheet, ctx.headers, row, COL_DOB, formatDob_(dob));
+    setCell_(ctx.sheet, ctx.headers, row, COL_UNIVERSITY, univ);
 
-    /*
-      Generated and sent in this request, not scheduled.
+    var minutes = DELAY_MIN_MINUTES + Math.random() * (DELAY_MAX_MINUTES - DELAY_MIN_MINUTES);
+    var when = new Date(Date.now() + Math.round(minutes * 60 * 1000));
 
-      deliverRow_ records its own outcome in the Status column and does not
-      throw, so the return below reports what actually happened rather than
-      what was intended: an intern is not told their documents are on the way
-      when the generation has just failed.
-    */
-    var sent = deliverRow_(row);
-    if (!sent.ok) {
-      return { ok: false, error: 'generate',
-               message: 'We saved your details, but could not prepare the documents. ' +
-                        'Please write to info@vikasanasystems.tech — there is no need to submit again.' };
-    }
-    return { ok: true };
+    var trigger = ScriptApp.newTrigger('deliverScheduled_').timeBased().at(when).create();
+    PropertiesService.getScriptProperties().setProperty(PENDING_PREFIX + trigger.getUniqueId(), String(row));
+
+    /* Status is written AFTER the trigger exists. If creating it throws — the
+       quota is 20 per script — the row stays un-queued and the intern is told it
+       failed, rather than a row claiming a delivery nobody scheduled. */
+    setCell_(ctx.sheet, ctx.headers, row, COL.STATUS,
+             'Queued — sending ' + Utilities.formatDate(when, CONFIG.TIMEZONE, 'HH:mm'));
+
+    return { ok: true, minutes: Math.round(minutes) };
   } finally {
     lock.releaseLock();
   }
@@ -357,6 +407,34 @@ function normaliseName_(s) {
 /* ─────────────────────────────────────────────────────────────── delivery */
 
 /**
+ * Fires once, some minutes after the submission that created it.
+ *
+ * The trigger is deleted FIRST, before any work that could throw. A one-time
+ * trigger survives its own firing, and at 20 per script a leak would eventually
+ * stop every further submission at the point of scheduling — so losing the
+ * trigger matters more than losing this delivery, which the Status column
+ * records either way.
+ */
+function deliverScheduled_(e) {
+  var props = PropertiesService.getScriptProperties();
+  var key = PENDING_PREFIX + (e && e.triggerUid);
+  var rowStr = props.getProperty(key);
+
+  try {
+    deleteTrigger_(e && e.triggerUid);
+  } catch (err) {
+    console.error('Could not delete trigger: %s', err);
+  }
+  props.deleteProperty(key);
+
+  if (!rowStr) {
+    console.error('Trigger fired with no pending row recorded (uid %s).', e && e.triggerUid);
+    return;
+  }
+  deliverRow_(Number(rowStr));
+}
+
+/**
  * Generates both documents and mails them to FORWARD_INBOX.
  *
  * Returns { ok } rather than throwing: the caller is a web request that has to
@@ -368,13 +446,19 @@ function normaliseName_(s) {
  * a web request has no way to show.
  */
 function deliverRow_(row) {
-  var ctx = sheetCtx_();
+  var ctx = ensureColumns_(sheetCtx_());
   var name = String(cell_(ctx.sheet, ctx.headers, row, COL.NAME) || '').trim();
   if (!name) { console.error('Row %s has no name; nothing sent.', row); return { ok: false }; }
 
   try {
     var data = rowData_(ctx.sheet, ctx.headers, row);
     if (!data.EMAIL) throw new Error('no email on row ' + row);
+
+    /* rowData_ is Code.gs's and knows nothing about these two. Added here so
+       {{DOB}} and {{UNIVERSITY}} substitute like every other tag — makeDoc_
+       replaces every key of this object. */
+    data.DOB = String(cell_(ctx.sheet, ctx.headers, row, COL_DOB) || '').trim();
+    data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, row, COL_UNIVERSITY) || '').trim();
 
     var folder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
     var docs = String(data._docs || 'Both').toLowerCase();
@@ -528,6 +612,68 @@ function deleteTrigger_(uid) {
 }
 
 /**
+ * ONE-OFF HOUSEKEEPING — run from the editor, then read the log.
+ *
+ * Deletes every row whose Name begins "ZZ TEST" (the submissions made while
+ * wiring this up), then renumbers the Offer and NDA references of the rows that
+ * remain so they run from 001 with no gaps, and sets the counters so the next
+ * auto-generated reference continues from the last one used.
+ *
+ * SAFE TO RUN ONLY BEFORE REAL LETTERS GO OUT. Renumbering rewrites references
+ * that may already be printed on a PDF someone is holding; this changes the
+ * sheet and not the documents. The Status column is the test: it is blank on a
+ * row nothing has been sent for. Rows that have been sent are renumbered too —
+ * if any exist, stop and do this by hand instead.
+ *
+ * Deletions are bottom-up. Removing a row shifts every row below it up by one,
+ * so a top-down loop reads the wrong rows after the first delete.
+ */
+function cleanupTestRowsAndRenumber() {
+  var ctx = ensureColumns_(sheetCtx_());
+  var last = ctx.sheet.getLastRow();
+
+  var sentRows = [];
+  for (var s1 = 2; s1 <= last; s1++) {
+    var st = String(cell_(ctx.sheet, ctx.headers, s1, COL.STATUS) || '').trim();
+    var nm = String(cell_(ctx.sheet, ctx.headers, s1, COL.NAME) || '').trim();
+    if (st && !/^ZZ TEST/i.test(nm)) sentRows.push(nm + ' (row ' + s1 + '): ' + st);
+  }
+  if (sentRows.length) {
+    Logger.log('STOPPED — these rows already have a Status, so a reference may be on a document that has left:\n  %s',
+               sentRows.join('\n  '));
+    Logger.log('Clear those Status cells first if the renumber is still what you want.');
+    return;
+  }
+
+  var deleted = 0;
+  for (var r = last; r >= 2; r--) {
+    var name = String(cell_(ctx.sheet, ctx.headers, r, COL.NAME) || '').trim();
+    if (/^ZZ TEST/i.test(name)) {
+      ctx.sheet.deleteRow(r);
+      deleted++;
+    }
+  }
+
+  last = ctx.sheet.getLastRow();
+  var n = 0;
+  for (var r2 = 2; r2 <= last; r2++) {
+    var nm2 = String(cell_(ctx.sheet, ctx.headers, r2, COL.NAME) || '').trim();
+    if (!nm2) continue;
+    n++;
+    var pad = String(n).padStart(3, '0');
+    setCell_(ctx.sheet, ctx.headers, r2, COL.OFFER_REF, CONFIG.OFFER_REF_PREFIX + pad);
+    setCell_(ctx.sheet, ctx.headers, r2, COL.NDA_REF, CONFIG.NDA_REF_PREFIX + pad);
+  }
+
+  /* nextRef_ increments BEFORE it formats, so storing n makes the next
+     generated reference n+1 — the first number not used above. */
+  PropertiesService.getScriptProperties().setProperties({ REF_OFFER: String(n), REF_NDA: String(n) });
+
+  Logger.log('Deleted %s test row(s). Renumbered %s candidate(s) from %s001. Next auto reference will be %s.',
+             deleted, n, CONFIG.OFFER_REF_PREFIX, CONFIG.OFFER_REF_PREFIX + String(n + 1).padStart(3, '0'));
+}
+
+/**
  * Run by hand if triggers ever pile up — deletes every deliverScheduled_ trigger
  * and forgets the rows they were holding. Those rows stay Queued and can be sent
  * from the VIKASANA HR menu.
@@ -547,6 +693,20 @@ function clearPendingDeliveries() {
 }
 
 /* ────────────────────────────────────────────────────────────────── output */
+
+/**
+ * "1999-04-07" → "07 April 1999", matching plainDate_ in Code.gs so a date on a
+ * letter reads the same wherever it came from. Anything unparseable is kept
+ * verbatim rather than discarded — a date we cannot read is still the date the
+ * person typed, and losing it would be worse than printing it oddly.
+ */
+function formatDob_(raw) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!m) return raw;
+  var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (isNaN(d.getTime())) return raw;
+  return Utilities.formatDate(d, CONFIG.TIMEZONE, 'dd MMMM yyyy');
+}
 
 function trim_(v, max) {
   var s = String(v === null || v === undefined ? '' : v).trim();

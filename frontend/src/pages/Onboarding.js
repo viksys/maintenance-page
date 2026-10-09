@@ -57,15 +57,16 @@ import { ONBOARDING_ENDPOINT, ONBOARDING_READY } from '@/data/onboarding';
 const HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
 
 /*
-  The documents are generated inside this request.
+  The script schedules the documents and answers immediately, so this request is
+  a sheet write and a trigger — a second or two, not the ~18s a synchronous
+  generation measured. 120s was the allowance for that synchronous version and
+  is no longer what is being waited on.
 
-  The script no longer schedules them for later — it copies two templates, fills
-  every tag, exports two PDFs and sends the mail before it answers. That is tens
-  of seconds, and 30s was not enough: the page would have reported a timeout
-  over a submission that was still working, which is the same false negative the
-  careers form used to show on a slow upload.
+  Still generous, because the cost of being wrong is asymmetric: too short
+  reports a failure over a submission that worked, which is what sends someone
+  back to submit a second time.
 */
-const TIMEOUT_MS = 120000;
+const TIMEOUT_MS = 45000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function Onboarding() {
@@ -76,6 +77,8 @@ export default function Onboarding() {
     address1: '',
     address2: '',
     address3: '',
+    dob: '',
+    university: '',
   });
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
@@ -118,6 +121,8 @@ export default function Onboarding() {
         address1: form.address1.trim(),
         address2: form.address2.trim(),
         address3: form.address3.trim(),
+        dob: form.dob,
+        university: form.university.trim(),
       };
 
       const found = {};
@@ -126,10 +131,12 @@ export default function Onboarding() {
       else if (!EMAIL_RE.test(values.email)) found.email = 'That email address does not look right.';
       if (!values.mobile) found.mobile = 'A mobile number is required.';
       if (!values.address1) found.address1 = 'Please give your address.';
+      if (!values.dob) found.dob = 'Please give your date of birth.';
+      if (!values.university) found.university = 'Please give your university or college.';
 
       setErrors(found);
       if (Object.keys(found).length) {
-        const first = ['name', 'email', 'mobile', 'address1'].find((k) => found[k]);
+        const first = ['name', 'email', 'dob', 'university', 'mobile', 'address1'].find((k) => found[k]);
         document.getElementById(`ob-${first}`)?.focus();
         return;
       }
@@ -177,7 +184,7 @@ export default function Onboarding() {
           return;
         }
 
-        if (data && data.error && ['name', 'email', 'mobile', 'address1'].includes(data.error)) {
+        if (data && data.error && ['name', 'email', 'dob', 'university', 'mobile', 'address1'].includes(data.error)) {
           setErrors((prev) => ({ ...prev, [data.error]: data.message }));
         }
         setResult({ ok: false, message: (data && data.message) || 'That did not go through. Please try again.' });
@@ -308,6 +315,41 @@ export default function Onboarding() {
                           />
                         </Field>
 
+                        <Field id="ob-dob" label="DATE OF BIRTH" required error={errors.dob}>
+                          {/* type=date, so the browser supplies its own picker
+                              and a locale-correct display while still handing us
+                              yyyy-mm-dd. A text box here would collect
+                              07/04/1999 from one person and 04/07/1999 from the
+                              next, and nothing downstream could tell them
+                              apart. */}
+                          <input
+                            id="ob-dob"
+                            type="date"
+                            className="input"
+                            value={form.dob}
+                            onChange={set('dob')}
+                            autoComplete="bday"
+                            aria-required="true"
+                            aria-invalid={errors.dob ? 'true' : undefined}
+                            aria-describedby={errors.dob ? 'ob-dob-error' : undefined}
+                          />
+                        </Field>
+
+                        <Field id="ob-university" label="UNIVERSITY / COLLEGE" required error={errors.university}>
+                          <input
+                            id="ob-university"
+                            className="input"
+                            value={form.university}
+                            onChange={set('university')}
+                            maxLength={160}
+                            autoComplete="organization"
+                            aria-required="true"
+                            aria-invalid={errors.university ? 'true' : undefined}
+                            aria-describedby={errors.university ? 'ob-university-error' : undefined}
+                            placeholder="Where you study"
+                          />
+                        </Field>
+
                         <Field id="ob-mobile" label="MOBILE" required error={errors.mobile} className="md:col-span-2">
                           <input
                             id="ob-mobile"
@@ -368,18 +410,18 @@ export default function Onboarding() {
                           Someone who reads it here does not refresh their inbox
                           thirty seconds later. */}
                       <p className="text-[12.5px] mt-6" style={{ color: 'var(--text-tertiary)', lineHeight: 1.6, maxWidth: 'var(--measure-sm)' }}>
-                        Your documents are prepared while you wait — this takes a few seconds. They are then
-                        emailed to you, so they do not land in your inbox the moment you submit.
+                        Your documents are prepared after you submit and then emailed to you. They do not
+                        arrive the moment you press the button.
                       </p>
 
                       <div className="flex items-center gap-4" style={{ marginTop: 20 }}>
-                        <FlowButton type="submit" variant="ink" text={sending ? 'Preparing…' : 'Submit Details'} />
+                        <FlowButton type="submit" variant="ink" text={sending ? 'Submitting…' : 'Submit Details'} />
                         {/* The word sits alone in the live region and the dots
                             are aria-hidden beside it: a live region whose text
                             changes every 400ms is announced every 400ms. */}
                         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
                           <span aria-live="polite" role="status">
-                            {sending ? 'Preparing your documents' : ''}
+                            {sending ? 'Submitting' : ''}
                           </span>
                           {sending && (
                             <span aria-hidden="true" style={{ fontFamily: 'var(--font-mono)' }}>
