@@ -60,7 +60,7 @@
   doGet reports this, so one GET answers the question. Bump it whenever this file
   changes in a way worth confirming.
 */
-var SCRIPT_VERSION = '2026-10-09-dob-university';
+var SCRIPT_VERSION = '2026-10-09-aadhaar-transcript';
 
 var DELAY_MIN_MINUTES = 5;
 var DELAY_MAX_MINUTES = 15;
@@ -135,6 +135,30 @@ var SEND_AS = '';
 */
 var COL_DOB = 'DOB';
 var COL_UNIVERSITY = 'University';
+var COL_AADHAAR = 'Aadhaar No';
+var COL_AADHAAR_FILE = 'Aadhaar File';
+var COL_TRANSCRIPT_FILE = 'Transcript File';
+
+/*
+  ─────────────────────────────────────────────────────────────────────────────
+  THE UPLOADED DOCUMENTS DO NOT GO IN WITH THE LETTERS
+  ─────────────────────────────────────────────────────────────────────────────
+
+  An Aadhaar image and a transcript are identity documents. They are filed in a
+  sub-folder of their own rather than beside the generated offer letters,
+  because the two have different audiences: the letters are forwarded onward,
+  and these are not.
+
+  They are NOT attached to the email either — only linked. An attachment is
+  copied into every mailbox the message passes through and cannot be withdrawn
+  from any of them; a Drive link stays one file whose access can be changed or
+  revoked later.
+*/
+var UPLOAD_SUBFOLDER = 'Candidate documents';
+
+/* Accepted uploads. Checked against the filename AND the decoded bytes. */
+var UPLOAD_EXT = ['pdf', 'jpg', 'jpeg', 'png'];
+var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 /*
   ─────────────────────────────────────────────────────────────────────────────
@@ -193,8 +217,82 @@ function sheetCtx_() {
  * Headers are matched by name throughout — Code.gs's col_ looks them up rather
  * than assuming positions — so appending at the end cannot disturb anything.
  */
+/**
+ * The sub-folder identity documents are filed in, created on first use.
+ *
+ * Looked up by name inside the configured output folder rather than stored as
+ * another id to paste: there is one of these and it is ours, so finding it is
+ * cheaper than another line of setup that can be filled in wrongly.
+ */
+function uploadFolder_() {
+  var parent = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
+  var it = parent.getFoldersByName(UPLOAD_SUBFOLDER);
+  return it.hasNext() ? it.next() : parent.createFolder(UPLOAD_SUBFOLDER);
+}
+
+/**
+ * Decodes one uploaded file and files it in Drive.
+ *
+ * Returns { ok, url } or { ok:false, message }, never throws — the caller is a
+ * web request that has to tell the intern which field was wrong.
+ */
+function storeUpload_(upload, personName, label, folder) {
+  var given = String((upload && upload.name) || '').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+  var ext = (given.split('.').pop() || '').toLowerCase();
+
+  if (UPLOAD_EXT.indexOf(ext) === -1) {
+    return { ok: false, message: 'Attach a PDF, JPG or PNG — "' + given + '" is not one.' };
+  }
+
+  var bytes;
+  try {
+    bytes = Utilities.base64Decode(String(upload.data));
+  } catch (err) {
+    return { ok: false, message: 'That file could not be read. Try attaching it again.' };
+  }
+  if (!bytes.length) return { ok: false, message: 'That file appears to be empty.' };
+  if (bytes.length > MAX_UPLOAD_BYTES) {
+    return { ok: false, message: 'That file is over 5 MB. Please attach a smaller one.' };
+  }
+  if (!signatureAgrees_(ext, bytes)) {
+    return { ok: false, message: 'That file does not look like a ' + ext.toUpperCase() + '. Please re-save it and try again.' };
+  }
+
+  var blob = Utilities.newBlob(bytes, upload.type || 'application/octet-stream', given);
+  var stamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  /* Named so the folder is readable without opening anything, and so the two
+     documents for one person sort together. */
+  blob.setName(stamp + ' — ' + personName.replace(/[\\/:*?"<>|]/g, '_') + ' — ' + label + '.' + ext);
+
+  var file = folder.createFile(blob);
+  return { ok: true, url: file.getUrl() };
+}
+
+/**
+ * Leading bytes must agree with the extension.
+ *
+ * Hygiene, not a security control — trivially defeated by anyone who cares, and
+ * a file that passes can still be hostile. What it buys is that nobody in HR
+ * double-clicks something claiming to be a PDF and is not. TREAT EVERYTHING IN
+ * THAT FOLDER AS UNTRUSTED.
+ */
+function signatureAgrees_(ext, bytes) {
+  function starts(sig) {
+    if (bytes.length < sig.length) return false;
+    for (var i = 0; i < sig.length; i++) {
+      /* Apps Script byte arrays are signed; normalise before comparing. */
+      if ((bytes[i] & 0xff) !== sig[i]) return false;
+    }
+    return true;
+  }
+  if (ext === 'pdf') return starts([0x25, 0x50, 0x44, 0x46]);            /* %PDF */
+  if (ext === 'png') return starts([0x89, 0x50, 0x4e, 0x47]);            /* \x89PNG */
+  if (ext === 'jpg' || ext === 'jpeg') return starts([0xff, 0xd8, 0xff]); /* JFIF/Exif */
+  return true;
+}
+
 function ensureColumns_(ctx) {
-  var wanted = [COL_DOB, COL_UNIVERSITY];
+  var wanted = [COL_DOB, COL_UNIVERSITY, COL_AADHAAR, COL_AADHAAR_FILE, COL_TRANSCRIPT_FILE];
   var missing = wanted.filter(function (h) { return ctx.headers.indexOf(h) < 0; });
   if (!missing.length) return ctx;
 
@@ -324,6 +422,7 @@ function receive_(body) {
   var addr3  = trim_(body.address3, 160);
   var dob    = trim_(body.dob, 40);
   var univ   = trim_(body.university, 160);
+  var aadhaar = trim_(body.aadhaar, 32).replace(/[^0-9]/g, '');
 
   if (!name)  return { ok: false, error: 'name',  message: 'Please give your full name.' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
@@ -333,6 +432,19 @@ function receive_(body) {
   if (!addr1)  return { ok: false, error: 'address1', message: 'Please give your address.' };
   if (!dob)    return { ok: false, error: 'dob', message: 'Please give your date of birth.' };
   if (!univ)   return { ok: false, error: 'university', message: 'Please give your university or college.' };
+  /* Twelve digits, and nothing about which twelve. Verhoeff checksum validation
+     is deliberately not done: a wrong-but-valid number passes it anyway, and a
+     right number rejected by our arithmetic would be a dead end for someone who
+     cannot argue with a form. HR checks the number against the image. */
+  if (aadhaar.length !== 12) {
+    return { ok: false, error: 'aadhaar', message: 'An Aadhaar number is twelve digits.' };
+  }
+  if (!body.aadhaarFile || !body.aadhaarFile.data) {
+    return { ok: false, error: 'aadhaarFile', message: 'Please attach your Aadhaar card.' };
+  }
+  if (!body.transcriptFile || !body.transcriptFile.data) {
+    return { ok: false, error: 'transcriptFile', message: 'Please attach your latest transcript or grade card.' };
+  }
 
   /* One submission at a time. Two interns posting together would otherwise both
      read the last row and both append to it, and the second would overwrite the
@@ -379,6 +491,21 @@ function receive_(body) {
        display. formatDob_ decides the wording once, visibly. */
     setCell_(ctx.sheet, ctx.headers, row, COL_DOB, formatDob_(dob));
     setCell_(ctx.sheet, ctx.headers, row, COL_UNIVERSITY, univ);
+
+    /* Stored as text with a leading apostrophe. Twelve digits in a Sheets cell
+       become 1.23457E+11 the moment the column is numeric, and an Aadhaar
+       number rounded to six significant figures is not a number anybody can
+       check against the image beside it. */
+    setCell_(ctx.sheet, ctx.headers, row, COL_AADHAAR, "'" + aadhaar);
+
+    var folder = uploadFolder_();
+    var aad = storeUpload_(body.aadhaarFile, name, 'Aadhaar', folder);
+    if (!aad.ok) return { ok: false, error: 'aadhaarFile', message: aad.message };
+    setCell_(ctx.sheet, ctx.headers, row, COL_AADHAAR_FILE, aad.url);
+
+    var tr = storeUpload_(body.transcriptFile, name, 'Transcript', folder);
+    if (!tr.ok) return { ok: false, error: 'transcriptFile', message: tr.message };
+    setCell_(ctx.sheet, ctx.headers, row, COL_TRANSCRIPT_FILE, tr.url);
 
     var minutes = DELAY_MIN_MINUTES + Math.random() * (DELAY_MAX_MINUTES - DELAY_MIN_MINUTES);
     var when = new Date(Date.now() + Math.round(minutes * 60 * 1000));
@@ -482,6 +609,10 @@ function deliverRow_(row) {
        replaces every key of this object. */
     data.DOB = String(cell_(ctx.sheet, ctx.headers, row, COL_DOB) || '').trim();
     data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, row, COL_UNIVERSITY) || '').trim();
+    /* Available as {{AADHAAR_NO}} if a template ever needs it. The leading
+       apostrophe is a Sheets storage detail and is stripped here — it would
+       otherwise print on the document. */
+    data.AADHAAR_NO = String(cell_(ctx.sheet, ctx.headers, row, COL_AADHAAR) || '').replace(/^'/, '').trim();
 
     var folder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
     var docs = String(data._docs || 'Both').toLowerCase();
@@ -573,6 +704,10 @@ function sendToForwardInbox_(data, pdfs) {
     'Send to: ' + data.EMAIL + '<br>' +
     'Cc: ' + FORWARD_CC + '<br>' +
     'Mobile: ' + (data.MOBILE || '—') + '<br>' +
+    /* Linked, not attached. An attachment is copied into every mailbox the
+       message reaches and cannot be withdrawn from any of them; these are
+       identity documents and this email gets forwarded. */
+    'Aadhaar / transcript: on Drive, see the candidate row — not attached here.<br>' +
     'Address: ' + [data.ADDRESS_LINE1, data.ADDRESS_LINE2, data.ADDRESS_LINE3].filter(String).join(', ') + '<br>' +
     'Refs: ' + data.OFFER_REF + ' / ' + data.NDA_REF +
     '</p>';

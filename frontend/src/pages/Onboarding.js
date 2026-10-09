@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SectionLabel from '@/components/SectionLabel';
@@ -64,8 +64,47 @@ const HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
   reports a failure over a submission that worked, which is what sends someone
   back to submit a second time.
 */
-const TIMEOUT_MS = 45000;
+/* Two uploads of up to 5 MB each, base64 so a third larger again, on whatever
+   upstream the intern has. The generation is still scheduled rather than done
+   here, so this allows for the transfer and nothing else. */
+const TIMEOUT_MS = 180000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+const UPLOAD_EXT = ['pdf', 'jpg', 'jpeg', 'png'];
+const UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,image/*,application/pdf';
+/* Must match MAX_UPLOAD_BYTES in WebForm.gs. Checked here so the limit is known
+   before a slow upload, and there because this file is shipped to the intern
+   and can be edited before it posts. */
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+const extensionOf = (n) => {
+  const parts = String(n || '').split('.');
+  return parts.length > 1 ? parts.pop().toLowerCase() : '';
+};
+
+const humanSize = (b) =>
+  b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
+
+/*
+  Reads a file as base64 WITHOUT the data: prefix.
+
+  FileReader yields "data:<type>;base64,<payload>" and the script decodes the
+  payload only; handing it the whole URL makes base64Decode throw, which would
+  surface as "that file could not be read" for a file that was fine.
+*/
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read-failed'));
+    reader.onload = () => {
+      const r = String(reader.result || '');
+      const comma = r.indexOf(',');
+      if (comma === -1) reject(new Error('read-failed'));
+      else resolve(r.slice(comma + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function Onboarding() {
   const [form, setForm] = useState({
@@ -77,7 +116,11 @@ export default function Onboarding() {
     address3: '',
     dob: '',
     university: '',
+    aadhaar: '',
   });
+  const [files, setFiles] = useState({ aadhaarFile: null, transcriptFile: null });
+  const aadhaarRef = useRef(null);
+  const transcriptRef = useRef(null);
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   /* Animates the ellipsis while the request is open. The documents take tens of
@@ -95,6 +138,34 @@ export default function Onboarding() {
     const id = setInterval(() => setDots((d) => (d % 3) + 1), 400);
     return () => clearInterval(id);
   }, [sending]);
+
+  /* Validated on selection rather than on submit: telling someone their file is
+     too large after they have filled the whole form in is a worse moment. */
+  const pickFile = (key, ref) => (e) => {
+    const picked = e.target.files?.[0] || null;
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    if (!picked) {
+      setFiles((f) => ({ ...f, [key]: null }));
+      return;
+    }
+    const bad =
+      !UPLOAD_EXT.includes(extensionOf(picked.name))
+        ? 'Attach a PDF, JPG or PNG.'
+        : picked.size > MAX_UPLOAD_BYTES
+          ? `That file is ${humanSize(picked.size)}. The limit is ${humanSize(MAX_UPLOAD_BYTES)}.`
+          : null;
+    if (bad) {
+      setFiles((f) => ({ ...f, [key]: null }));
+      if (ref.current) ref.current.value = '';
+      setErrors((prev) => ({ ...prev, [key]: bad }));
+      return;
+    }
+    setFiles((f) => ({ ...f, [key]: picked }));
+  };
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -121,6 +192,7 @@ export default function Onboarding() {
         address3: form.address3.trim(),
         dob: form.dob,
         university: form.university.trim(),
+        aadhaar: form.aadhaar.replace(/\D/g, ''),
       };
 
       const found = {};
@@ -131,10 +203,14 @@ export default function Onboarding() {
       if (!values.address1) found.address1 = 'Please give your address.';
       if (!values.dob) found.dob = 'Please give your date of birth.';
       if (!values.university) found.university = 'Please give your university or college.';
+      if (!values.aadhaar) found.aadhaar = 'Please give your Aadhaar number.';
+      else if (values.aadhaar.length !== 12) found.aadhaar = 'An Aadhaar number is twelve digits.';
+      if (!files.aadhaarFile) found.aadhaarFile = 'Please attach your Aadhaar card.';
+      if (!files.transcriptFile) found.transcriptFile = 'Please attach your latest transcript or grade card.';
 
       setErrors(found);
       if (Object.keys(found).length) {
-        const first = ['name', 'email', 'dob', 'university', 'mobile', 'address1'].find((k) => found[k]);
+        const first = ['name', 'email', 'dob', 'university', 'mobile', 'address1', 'aadhaar', 'aadhaarFile', 'transcriptFile'].find((k) => found[k]);
         document.getElementById(`ob-${first}`)?.focus();
         return;
       }
@@ -146,11 +222,25 @@ export default function Onboarding() {
       const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
       try {
+        const payload = {
+          ...values,
+          aadhaarFile: {
+            name: files.aadhaarFile.name,
+            type: files.aadhaarFile.type || '',
+            data: await fileToBase64(files.aadhaarFile),
+          },
+          transcriptFile: {
+            name: files.transcriptFile.name,
+            type: files.transcriptFile.type || '',
+            data: await fileToBase64(files.transcriptFile),
+          },
+        };
+
         const res = await fetch(ONBOARDING_ENDPOINT, {
           method: 'POST',
           headers: HEADERS,
           signal: controller.signal,
-          body: JSON.stringify(values),
+          body: JSON.stringify(payload),
         });
 
         /*
@@ -182,7 +272,7 @@ export default function Onboarding() {
           return;
         }
 
-        if (data && data.error && ['name', 'email', 'dob', 'university', 'mobile', 'address1'].includes(data.error)) {
+        if (data && data.error && ['name', 'email', 'dob', 'university', 'mobile', 'address1', 'aadhaar', 'aadhaarFile', 'transcriptFile'].includes(data.error)) {
           setErrors((prev) => ({ ...prev, [data.error]: data.message }));
         }
         setResult({ ok: false, message: (data && data.message) || 'That did not go through. Please try again.' });
@@ -202,7 +292,7 @@ export default function Onboarding() {
         setSending(false);
       }
     },
-    [form, sending]
+    [form, files, sending]
   );
 
   return (
@@ -402,6 +492,52 @@ export default function Onboarding() {
                             placeholder="City, state and PIN code"
                           />
                         </Field>
+
+                        <Field id="ob-aadhaar" label="AADHAAR NUMBER" required error={errors.aadhaar} className="md:col-span-2">
+                          <input
+                            id="ob-aadhaar"
+                            className="input"
+                            inputMode="numeric"
+                            value={form.aadhaar}
+                            onChange={set('aadhaar')}
+                            maxLength={14}
+                            aria-required="true"
+                            aria-invalid={errors.aadhaar ? 'true' : undefined}
+                            aria-describedby={errors.aadhaar ? 'ob-aadhaar-error' : 'ob-aadhaar-hint'}
+                            placeholder="12 digits"
+                          />
+                          {!errors.aadhaar && (
+                            <div id="ob-aadhaar-hint" style={{ fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                              Spaces are fine — only the digits are kept.
+                            </div>
+                          )}
+                        </Field>
+
+                        <Upload
+                          id="ob-aadhaarFile"
+                          label="AADHAAR CARD"
+                          file={files.aadhaarFile}
+                          error={errors.aadhaarFile}
+                          inputRef={aadhaarRef}
+                          onPick={pickFile('aadhaarFile', aadhaarRef)}
+                          onClear={() => {
+                            setFiles((f) => ({ ...f, aadhaarFile: null }));
+                            if (aadhaarRef.current) aadhaarRef.current.value = '';
+                          }}
+                        />
+
+                        <Upload
+                          id="ob-transcriptFile"
+                          label="LATEST TRANSCRIPT / GRADE CARD"
+                          file={files.transcriptFile}
+                          error={errors.transcriptFile}
+                          inputRef={transcriptRef}
+                          onPick={pickFile('transcriptFile', transcriptRef)}
+                          onClear={() => {
+                            setFiles((f) => ({ ...f, transcriptFile: null }));
+                            if (transcriptRef.current) transcriptRef.current.value = '';
+                          }}
+                        />
                       </div>
 
                       {/* Before the button, not only on the confirmation: that the
@@ -445,6 +581,85 @@ export default function Onboarding() {
       </main>
 
       <Footer />
+    </div>
+  );
+}
+
+/*
+  A file row in the site's button language: the input is clipped rather than
+  hidden, so it keeps its id, its place in the tab order and its accessible
+  name, and a <label htmlFor> opens the picker on click and on Enter/Space
+  without a key handler. display:none or visibility:hidden would remove it from
+  the accessibility tree, which is exactly what must not happen to the control
+  itself.
+*/
+function Upload({ id, label, file, error, inputRef, onPick, onClear }) {
+  return (
+    <div className="md:col-span-2">
+      <label htmlFor={id} className="meta mb-2" style={{ display: 'block' }}>
+        {label}{' '}
+        <span aria-hidden="true" style={{ color: 'var(--amber-text)' }}>*</span>
+      </label>
+      <input
+        id={id}
+        ref={inputRef}
+        type="file"
+        accept={UPLOAD_ACCEPT}
+        onChange={onPick}
+        aria-required="true"
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={error ? `${id}-error` : `${id}-hint`}
+        style={{
+          position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+          overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+        }}
+      />
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 14,
+          border: '1px solid', borderColor: error ? 'var(--amber)' : 'var(--stone-100)',
+          padding: '12px 14px',
+        }}
+      >
+        <label
+          htmlFor={id}
+          className="meta"
+          style={{
+            cursor: 'pointer', border: '1.5px solid var(--ink)', borderRadius: 100,
+            color: 'var(--ink)', padding: '9px 20px', whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+        >
+          {file ? 'CHANGE FILE' : 'CHOOSE FILE'}
+        </label>
+        <span
+          style={{
+            fontSize: 13, color: file ? 'var(--ink)' : 'var(--text-tertiary)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+          }}
+        >
+          {file ? `${file.name} · ${humanSize(file.size)}` : 'No file chosen'}
+        </span>
+        {file && (
+          <button
+            type="button"
+            className="meta"
+            onClick={onClear}
+            style={{
+              marginLeft: 'auto', background: 'none', border: 0, padding: '4px 2px',
+              cursor: 'pointer', color: 'var(--text-secondary)', textDecoration: 'underline', flexShrink: 0,
+            }}
+          >
+            REMOVE
+          </button>
+        )}
+      </div>
+      {error ? (
+        <div id={`${id}-error`} style={{ fontSize: 12.5, color: 'var(--amber-text)', marginTop: 6 }}>{error}</div>
+      ) : (
+        <div id={`${id}-hint`} style={{ fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 6 }}>
+          {`PDF, JPG or PNG. Up to ${humanSize(MAX_UPLOAD_BYTES)}.`}
+        </div>
+      )}
     </div>
   );
 }
