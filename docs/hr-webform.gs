@@ -56,7 +56,7 @@
   doGet reports this, so one GET answers the question. Bump it whenever this file
   changes in a way worth confirming.
 */
-var SCRIPT_VERSION = '2026-10-09-approval-gate';
+var SCRIPT_VERSION = '2026-10-10-dates-required';
 
 /*
   Script property prefix used by the retired scheduled path. Kept only so
@@ -74,6 +74,26 @@ var PENDING_PREFIX = 'deliver:';
   can see why.
 */
 var COL_APPROVED = 'Approved';
+
+/*
+  ─────────────────────────────────────────────────────────────────────────────
+  DATES FOR A ROW NOBODY SEEDED
+  ─────────────────────────────────────────────────────────────────────────────
+
+  A submission from a name that is not on the sheet appends a row, and that row
+  has no Start or End date. Code.gs's ordinalDate_ returns '' for a blank, so
+  {{START_DATE}} and {{END_DATE}} substitute to nothing and the letter is
+  generated with the dates simply ABSENT — no error anywhere, and the first
+  sign of it is on the document.
+
+  These two defaults fill an appended row. Leave them blank and nothing is
+  assumed; generateRow_ then refuses to build the letter rather than building a
+  dateless one. Either way the dates are never silently missing.
+
+  yyyy-mm-dd, matching the Candidates sheet.
+*/
+var DEFAULT_START_DATE = '2026-10-12';
+var DEFAULT_END_DATE = '2027-02-12';
 
 /*
   ─────────────────────────────────────────────────────────────────────────────
@@ -503,7 +523,8 @@ function receive_(body) {
       if (/^sent/i.test(status)) {
         return { ok: false, error: 'already', message: 'Your documents have already been sent. Please check your inbox, including spam.' };
       }
-      if (/^generated/i.test(status) || /^with /i.test(status) || /^queued/i.test(status)) {
+      if (/^generated/i.test(status) || /^details received/i.test(status) ||
+          /^with /i.test(status) || /^queued/i.test(status)) {
         return { ok: false, error: 'already', message: 'We already have your details. Your documents are being prepared and will be emailed to you.' };
       }
     } else {
@@ -515,6 +536,8 @@ function receive_(body) {
       row = ctx.sheet.getLastRow();
       setCell_(ctx.sheet, ctx.headers, row, COL.ROLE, CONFIG.DEFAULT_ROLE);
       setCell_(ctx.sheet, ctx.headers, row, COL.DOCS, 'Both');
+      if (DEFAULT_START_DATE) setCell_(ctx.sheet, ctx.headers, row, COL.START, DEFAULT_START_DATE);
+      if (DEFAULT_END_DATE) setCell_(ctx.sheet, ctx.headers, row, COL.END, DEFAULT_END_DATE);
     }
 
     setCell_(ctx.sheet, ctx.headers, row, COL.EMAIL, email);
@@ -608,6 +631,28 @@ function generateRow_(row) {
   var name = String(cell_(ctx.sheet, ctx.headers, row, COL.NAME) || '').trim();
   if (!name) { console.error('Row %s has no name; nothing sent.', row); return { ok: false }; }
 
+  /*
+    REFUSE RATHER THAN PRINT A LETTER WITH NO DATES.
+
+    ordinalDate_ answers '' for a blank cell, so a missing Start or End date
+    does not throw — it produces an offer letter whose dates are absent, which
+    reads as finished and is not. Checked before anything is generated, so the
+    row waits for HR instead of a candidate receiving it.
+
+    The intern is still told their submission succeeded: their details ARE
+    saved, nothing about this is theirs to fix, and the Status column is where
+    it gets picked up.
+  */
+  var missingDates = [];
+  if (!cell_(ctx.sheet, ctx.headers, row, COL.START)) missingDates.push('Start Date');
+  if (!cell_(ctx.sheet, ctx.headers, row, COL.END)) missingDates.push('End Date');
+  if (missingDates.length) {
+    console.error('Row %s has no %s — not generating.', row, missingDates.join(' or '));
+    setCell_(ctx.sheet, ctx.headers, row, COL.STATUS,
+             'Details received — add ' + missingDates.join(' and ') + ', then approve');
+    return { ok: true, generated: false };
+  }
+
   try {
     var data = rowData_(ctx.sheet, ctx.headers, row);
     if (!data.EMAIL) throw new Error('no email on row ' + row);
@@ -681,15 +726,43 @@ function sendApprovedDocuments() {
       data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, r, COL_UNIVERSITY) || '').trim();
       data.AADHAAR_NO = String(cell_(ctx.sheet, ctx.headers, r, COL_AADHAAR) || '').replace(/^'/, '').trim();
 
-      var pdfs = [];
       var offerUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.OFFER_DOC) || '');
       var ndaUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.NDA_DOC) || '');
+
+      /*
+        Generate now if the submission could not.
+
+        A row whose dates were missing at submission has no PDFs — generateRow_
+        refuses to build a dateless letter. Once HR has filled the dates in and
+        approved it, this is the moment it becomes buildable, and making them
+        run a second thing to get there is a step that would be forgotten.
+
+        A row that DOES have PDFs is never regenerated: what gets sent is what
+        was approved.
+      */
+      if (!offerUrl && !ndaUrl) {
+        var made = generateRow_(r);
+        if (!made.ok) throw new Error('generation failed — see the Status column');
+        if (made.generated === false) {
+          /* Still not buildable; generateRow_ has written why into Status. */
+          skipped.push(name + ' — ' + String(cell_(ctx.sheet, ctx.headers, r, COL.STATUS) || 'not ready'));
+          continue;
+        }
+        offerUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.OFFER_DOC) || '');
+        ndaUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.NDA_DOC) || '');
+        /* rowData_ may have assigned references during generation. */
+        data = rowData_(ctx.sheet, ctx.headers, r);
+        data.DOB = String(cell_(ctx.sheet, ctx.headers, r, COL_DOB) || '').trim();
+        data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, r, COL_UNIVERSITY) || '').trim();
+        data.AADHAAR_NO = String(cell_(ctx.sheet, ctx.headers, r, COL_AADHAAR) || '').replace(/^'/, '').trim();
+      }
+
+      var pdfs = [];
       if (offerUrl) pdfs.push(fileFromUrl_(offerUrl));
       if (ndaUrl) pdfs.push(fileFromUrl_(ndaUrl));
 
-      /* Refuse rather than send an empty envelope. A row approved before its
-         documents existed is a mistake worth stopping at, not papering over. */
-      if (!pdfs.length) throw new Error('no generated PDF on the row — generate before approving');
+      /* Refuse rather than send an empty envelope. */
+      if (!pdfs.length) throw new Error('no generated PDF on the row');
 
       sendForForwarding_(data, pdfs);
       setCell_(ctx.sheet, ctx.headers, r, COL.STATUS,
