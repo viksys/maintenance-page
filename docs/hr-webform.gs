@@ -657,15 +657,8 @@ function generateRow_(row) {
     var data = rowData_(ctx.sheet, ctx.headers, row);
     if (!data.EMAIL) throw new Error('no email on row ' + row);
 
-    /* rowData_ is Code.gs's and knows nothing about these two. Added here so
-       {{DOB}} and {{UNIVERSITY}} substitute like every other tag — makeDoc_
-       replaces every key of this object. */
-    data.DOB = String(cell_(ctx.sheet, ctx.headers, row, COL_DOB) || '').trim();
-    data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, row, COL_UNIVERSITY) || '').trim();
-    /* Available as {{AADHAAR_NO}} if a template ever needs it. The leading
-       apostrophe is a Sheets storage detail and is stripped here — it would
-       otherwise print on the document. */
-    data.AADHAAR_NO = String(cell_(ctx.sheet, ctx.headers, row, COL_AADHAAR) || '').replace(/^'/, '').trim();
+    /* DOB, UNIVERSITY and AADHAAR_NO come from rowData_ now — Code.gs reads
+       them, so the menu and this path build identical documents. */
 
     var folder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
     var docs = String(data._docs || 'Both').toLowerCase();
@@ -722,9 +715,6 @@ function sendApprovedDocuments() {
     try {
       var data = rowData_(ctx.sheet, ctx.headers, r);
       if (!data.EMAIL) throw new Error('no email on the row');
-      data.DOB = String(cell_(ctx.sheet, ctx.headers, r, COL_DOB) || '').trim();
-      data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, r, COL_UNIVERSITY) || '').trim();
-      data.AADHAAR_NO = String(cell_(ctx.sheet, ctx.headers, r, COL_AADHAAR) || '').replace(/^'/, '').trim();
 
       var offerUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.OFFER_DOC) || '');
       var ndaUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.NDA_DOC) || '');
@@ -752,9 +742,6 @@ function sendApprovedDocuments() {
         ndaUrl = String(cell_(ctx.sheet, ctx.headers, r, COL.NDA_DOC) || '');
         /* rowData_ may have assigned references during generation. */
         data = rowData_(ctx.sheet, ctx.headers, r);
-        data.DOB = String(cell_(ctx.sheet, ctx.headers, r, COL_DOB) || '').trim();
-        data.UNIVERSITY = String(cell_(ctx.sheet, ctx.headers, r, COL_UNIVERSITY) || '').trim();
-        data.AADHAAR_NO = String(cell_(ctx.sheet, ctx.headers, r, COL_AADHAAR) || '').replace(/^'/, '').trim();
       }
 
       var pdfs = [];

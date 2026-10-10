@@ -181,8 +181,33 @@ function rowData_(sheet, headers, r) {
     DATE: plainDate_(v(COL.DATE) || new Date()),   // e.g. 09 October 2026
     OFFER_REF: String(offerRef),
     NDA_REF: String(ndaRef),
+
+    /*
+      Collected by the website form (/onboarding), and read here so BOTH paths
+      produce the same document — this menu and WebForm.gs's generator.
+
+      It matters because makeDoc_ only replaces tags it is given a value for. A
+      tag with no key is left alone, so once {{DOB}} is added to a template, a
+      letter generated from this menu without these would print the literal
+      "{{DOB}}" on the page.
+
+      optionalCell_ because these columns do not exist on a sheet that predates
+      the form, and a missing column must read as blank rather than throw.
+    */
+    DOB: String(optionalCell_(sheet, headers, r, 'DOB') || '').trim(),
+    UNIVERSITY: String(optionalCell_(sheet, headers, r, 'University') || '').trim(),
+    /* The sheet stores this with a leading apostrophe so twelve digits are not
+       rendered as 1.23457E+11; it is a storage detail and must not print. */
+    AADHAAR_NO: String(optionalCell_(sheet, headers, r, 'Aadhaar No') || '').replace(/^'/, '').trim(),
+
     _docs: v(COL.DOCS),
   };
+}
+
+/** A cell whose column may not exist. Returns '' rather than throwing. */
+function optionalCell_(sheet, headers, r, name) {
+  const i = headers.indexOf(name);
+  return i < 0 ? '' : sheet.getRange(r, i + 1).getValue();
 }
 
 // ============ HELPERS ============
