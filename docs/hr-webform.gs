@@ -685,6 +685,66 @@ function generateRow_(row) {
   }
 }
 
+/* ─────────────────────────────────────────────────────── generate by range */
+
+/*
+  The rows generateRowRange() works on, inclusive, counting as the sheet counts:
+  row 1 is the header, so the first candidate is row 2.
+
+  Editable constants rather than arguments because Apps Script's Run button
+  cannot pass any, and rather than a selection because selecting five rows and
+  running the wrong menu item is a mistake with no undo — these two numbers are
+  visible before anything happens and stay in the file as a record of what was
+  run.
+*/
+var GENERATE_FROM_ROW = 2;
+var GENERATE_TO_ROW = 6;
+
+/**
+ * Generates both PDFs for every row in the range. SENDS NOTHING.
+ *
+ * Use it on candidates already on the sheet — the ones seeded by hand rather
+ * than entered through the form. Equivalent to VIKASANA HR → "Generate only
+ * (no email)" but without depending on what happens to be selected.
+ *
+ * Rows that already have PDFs are rebuilt: this is the deliberate "generate
+ * these rows" action, so it does what it says. Rows missing a Start or End date
+ * are refused by generateRow_ and say so in Status.
+ */
+function generateRowRange() {
+  var ctx = ensureColumns_(sheetCtx_());
+  var last = ctx.sheet.getLastRow();
+  var from = Math.max(2, GENERATE_FROM_ROW);
+  var to = Math.min(last, GENERATE_TO_ROW);
+
+  if (from > to) {
+    Logger.log('Nothing to do: rows %s–%s, but the sheet ends at row %s.', GENERATE_FROM_ROW, GENERATE_TO_ROW, last);
+    return;
+  }
+
+  var made = [], waiting = [], failed = [];
+  for (var r = from; r <= to; r++) {
+    var name = String(cell_(ctx.sheet, ctx.headers, r, COL.NAME) || '').trim();
+    if (!name) continue;
+    var res = generateRow_(r);
+    if (!res.ok) failed.push(name + ' (row ' + r + ')');
+    else if (res.generated === false) waiting.push(name + ' — ' + String(cell_(ctx.sheet, ctx.headers, r, COL.STATUS) || ''));
+    else made.push(name);
+  }
+
+  var summary = 'Generated ' + made.length + (made.length ? ': ' + made.join(', ') : '') +
+    (waiting.length ? '\nNot generated ' + waiting.length + ':\n  ' + waiting.join('\n  ') : '') +
+    (failed.length ? '\nFAILED ' + failed.length + ': ' + failed.join(', ') : '') +
+    '\nNothing was emailed. Approve the rows, then run sendApprovedDocuments().';
+  Logger.log(summary);
+  try {
+    SpreadsheetApp.getUi().alert(summary);
+  } catch (ignored) {
+    /* editor run — the log is the output */
+  }
+  return summary;
+}
+
 /* ──────────────────────────────────────────────────────────── the approval */
 
 /**

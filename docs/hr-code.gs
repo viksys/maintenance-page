@@ -52,6 +52,7 @@ function onOpen() {
     /* The website form's half: /onboarding generates on submission and sends
        nothing, so this is what actually mails those candidates. Defined in
        WebForm.gs; the menu lives here because a project gets one onOpen. */
+    .addItem('Generate rows ' + GENERATE_FROM_ROW + '–' + GENERATE_TO_ROW + ' (no email)', 'generateRowRange')
     .addItem('Email approved candidates (from the form)', 'sendApprovedDocuments')
     .addToUi();
 }
