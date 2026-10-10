@@ -56,7 +56,7 @@
   doGet reports this, so one GET answers the question. Bump it whenever this file
   changes in a way worth confirming.
 */
-var SCRIPT_VERSION = '2026-10-10-dates-required';
+var SCRIPT_VERSION = '2026-10-10-signed-returns';
 
 /*
   Script property prefix used by the retired scheduled path. Kept only so
@@ -74,6 +74,9 @@ var PENDING_PREFIX = 'deliver:';
   can see why.
 */
 var COL_APPROVED = 'Approved';
+var COL_SIGNED_OFFER = 'Signed Offer';
+var COL_SIGNED_NDA = 'Signed NDA';
+var COL_SIGNED_AT = 'Signed At';
 
 /*
   ─────────────────────────────────────────────────────────────────────────────
@@ -198,6 +201,15 @@ var COL_TRANSCRIPT_FILE = 'Transcript File';
   revoked later.
 */
 var UPLOAD_SUBFOLDER = 'Candidate documents';
+
+/*
+  Signed copies come back to a folder of their own.
+
+  Separate from both the generated letters and the identity documents, because
+  this is the folder someone opens to answer "who has returned theirs" — mixing
+  it with anything else makes that a search instead of a glance.
+*/
+var SIGNED_SUBFOLDER = 'Signed returns';
 
 /* Accepted uploads. Checked against the filename AND the decoded bytes. */
 var UPLOAD_EXT = ['pdf', 'jpg', 'jpeg', 'png'];
@@ -335,7 +347,8 @@ function signatureAgrees_(ext, bytes) {
 }
 
 function ensureColumns_(ctx) {
-  var wanted = [COL_DOB, COL_UNIVERSITY, COL_AADHAAR, COL_AADHAAR_FILE, COL_TRANSCRIPT_FILE, COL_APPROVED];
+  var wanted = [COL_DOB, COL_UNIVERSITY, COL_AADHAAR, COL_AADHAAR_FILE, COL_TRANSCRIPT_FILE,
+                COL_APPROVED, COL_SIGNED_OFFER, COL_SIGNED_NDA, COL_SIGNED_AT];
   var missing = wanted.filter(function (h) { return ctx.headers.indexOf(h) < 0; });
   if (!missing.length) return ctx;
 
@@ -448,6 +461,9 @@ function doPost(e) {
     /* text/plain on purpose: an application/json body makes the browser send a
        CORS preflight, and an Apps Script web app cannot answer OPTIONS. */
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    /* One endpoint, two forms. `kind` chooses; anything else is the original
+       details form, so a client that predates this still works. */
+    if (String(body.kind || '') === 'signed') return jsonOut_(receiveSigned_(body));
     return jsonOut_(receive_(body));
   } catch (err) {
     console.error(err && err.stack ? err.stack : err);
@@ -583,6 +599,126 @@ function receive_(body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ─────────────────────────────────────────────────────── signed returns */
+
+/**
+ * Takes a signed offer letter and NDA back from a candidate.
+ *
+ * Identified by name AND date of birth. Email is not asked for: the row already
+ * has one, and a second chance to type it is a second chance to mistype it —
+ * whereas a date of birth the candidate already gave us is something only they
+ * and the sheet know, which is what makes it worth checking.
+ */
+function receiveSigned_(body) {
+  var name = trim_(body.name, 120);
+  var dob = trim_(body.dob, 40);
+
+  if (!name) return { ok: false, error: 'name', message: 'Please give your full name.' };
+  if (!dob) return { ok: false, error: 'dob', message: 'Please give your date of birth.' };
+  if (!body.signedOffer || !body.signedOffer.data) {
+    return { ok: false, error: 'signedOffer', message: 'Please attach your signed offer letter.' };
+  }
+  if (!body.signedNda || !body.signedNda.data) {
+    return { ok: false, error: 'signedNda', message: 'Please attach your signed NDA.' };
+  }
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) {
+    return { ok: false, error: 'busy', message: 'Someone else is submitting right now — please try again in a moment.' };
+  }
+
+  try {
+    var ctx = ensureColumns_(sheetCtx_());
+    var row = findSignedRow_(ctx, name, dob);
+
+    /*
+      No row, no upload. The details form appends when it cannot find a name,
+      because a candidate's details are worth having even if HR spelled them
+      differently. This one must not: a signed document with no row to attach to
+      is a file nobody will look for, and the pair of name and date of birth not
+      matching means we are not sure who sent it.
+    */
+    if (!row) {
+      return { ok: false, error: 'match',
+               message: 'We could not match that name and date of birth to your record. ' +
+                        'Use the name exactly as it appears on your offer letter, or write to ' +
+                        'info@vikasanasystems.tech.' };
+    }
+
+    var existing = String(cell_(ctx.sheet, ctx.headers, row, COL_SIGNED_OFFER) || '');
+    if (existing) {
+      return { ok: false, error: 'already',
+               message: 'We already have your signed documents. There is no need to send them again.' };
+    }
+
+    var folder = signedFolder_();
+    var who = String(cell_(ctx.sheet, ctx.headers, row, COL.NAME) || name).trim();
+
+    var offer = storeUpload_(body.signedOffer, who, 'Signed Offer', folder);
+    if (!offer.ok) return { ok: false, error: 'signedOffer', message: offer.message };
+
+    var nda = storeUpload_(body.signedNda, who, 'Signed NDA', folder);
+    if (!nda.ok) return { ok: false, error: 'signedNda', message: nda.message };
+
+    setCell_(ctx.sheet, ctx.headers, row, COL_SIGNED_OFFER, offer.url);
+    setCell_(ctx.sheet, ctx.headers, row, COL_SIGNED_NDA, nda.url);
+    setCell_(ctx.sheet, ctx.headers, row, COL_SIGNED_AT, new Date());
+    setCell_(ctx.sheet, ctx.headers, row, COL.STATUS, 'Signed — returned');
+
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** The folder signed returns are filed in, created on first use. */
+function signedFolder_() {
+  var parent = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
+  var it = parent.getFoldersByName(SIGNED_SUBFOLDER);
+  return it.hasNext() ? it.next() : parent.createFolder(SIGNED_SUBFOLDER);
+}
+
+/**
+ * The row matching a name and a date of birth.
+ *
+ * The sheet stores the date as "07 April 1999" and the form sends 1999-04-07,
+ * so both sides are reduced to yyyy-mm-dd before comparing — a string compare
+ * would never match, and matching on the name alone would let one candidate
+ * overwrite another's signed documents by typo.
+ */
+function findSignedRow_(ctx, name, dob) {
+  var wantName = normaliseName_(name);
+  var wantDob = isoDate_(dob);
+  var last = ctx.sheet.getLastRow();
+
+  for (var r = 2; r <= last; r++) {
+    var n = normaliseName_(String(cell_(ctx.sheet, ctx.headers, r, COL.NAME) || ''));
+    if (!n || n !== wantName) continue;
+    var cellDob = isoDate_(cell_(ctx.sheet, ctx.headers, r, COL_DOB));
+    if (wantDob && cellDob && wantDob === cellDob) return r;
+  }
+  return null;
+}
+
+/**
+ * Anything date-like reduced to yyyy-mm-dd, or '' when it cannot be read.
+ *
+ * Handles the three shapes this sheet produces: a real Date if the column was
+ * ever formatted as one, "07 April 1999" as formatDob_ writes it, and the
+ * yyyy-mm-dd the form posts.
+ */
+function isoDate_(v) {
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return Utilities.formatDate(v, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  }
+  var str = String(v == null ? '' : v).trim();
+  if (!str) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  var d = new Date(str);
+  if (isNaN(d.getTime())) return '';
+  return Utilities.formatDate(d, CONFIG.TIMEZONE, 'yyyy-MM-dd');
 }
 
 /**
