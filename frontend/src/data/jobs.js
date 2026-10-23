@@ -1,12 +1,15 @@
 /*
   Open roles.
 
-  THREE ROLES. Six engineering positions — software, embedded, robotics, computer
+  TWO ROLES. Six engineering positions — software, embedded, robotics, computer
   vision, electronics and mechanical design — were listed here and removed on
   23 September 2026, by direction: the company is hiring interns and nothing
   else, and a careers page advertising six roles it will not fill costs more
   than an empty one. Social Media Intern was added on 29 September 2026, and
-  Management Intern on 2 October 2026.
+  Management Intern on 2 October 2026. Defence Systems Intern — the role the
+  page was rebuilt around — was removed on 23 October 2026, by direction, after
+  its interns were hired; the record is in the git history if it is posted
+  again.
 
   Roles need not be shaped alike. Social Media Intern declares no
   `responsibilities` and no `required` because neither was given, and JobDetails
@@ -49,52 +52,6 @@ const BASE = {
 };
 
 export const jobs = [
-  {
-    slug: 'defence-systems-intern',
-    title: 'Defence Systems Intern',
-    tags: ['INTERNSHIP', 'MANGALURU · BENGALURU · REMOTE'],
-    experience: 'Students and recent graduates',
-    employment: 'Internship, 4 months',
-    summary: [
-      'As a Defence Systems Intern you will work on a real component of the system alongside the engineering team, not a side project kept away from the product.',
-      'You will be given a defined problem, the context to understand why it matters, and an engineer who is responsible for helping you land it.',
-    ],
-    responsibilities: [
-      'Own a scoped component of the mission software or hardware stack',
-      'Work through design, implementation and testing with review',
-      'Participate in engineering discussions and design reviews',
-      'Write tests and documentation for what you build',
-      'Present your work to the team at the end of the internship',
-    ],
-    /* The technical list is as supplied on 29 September 2026. The three
-       non-technical lines around it are kept: eligibility and location are
-       conditions of the internship and are not implied by a skills list. */
-    required: [
-      'Python',
-      'HTML & CSS',
-      'JavaScript',
-      'React / React.js',
-      'REST APIs and backend development',
-      'Good programming and problem-solving skills',
-      'Git and basic software development practices',
-      'Currently pursuing or recently completed a degree in Engineering, Computer Science or a related field',
-      'Able to work from Mangaluru or Bengaluru, or remotely with regular overlap',
-      'Curiosity, and comfort saying when you do not know something',
-    ],
-    preferred: [
-      'MAVLink',
-      'Computer networking',
-      'Experience with autonomous systems, drones/UAVs or robotics',
-      'AI/ML and computer vision',
-      'FastAPI or similar backend frameworks',
-      'Cloud platforms and Docker',
-      'Interest in defence and indigenous technology',
-    ],
-    /* Chips, so the stack is legible before the panel is opened. C++ and ROS2
-       are dropped: neither appears in the supplied lists, and a technology
-       shown here that no requirement mentions invites the wrong applicant. */
-    technologies: ['Python', 'JavaScript', 'React', 'REST APIs', 'FastAPI', 'Git', 'Docker', 'MAVLink', 'Linux'],
-  },
   {
     slug: 'social-media-intern',
     title: 'Social Media Intern',

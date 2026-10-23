@@ -44,13 +44,6 @@ const ALLOWED = {
       'through tailwind\'s file globbing, which runs over our own source at build and never sees ' +
       'untrusted input.',
   },
-  'GHSA-hp3w-g68c-fv3c': {
-    package: 'sprintf-js',
-    why:
-      'Denial of service through unbounded precision specifiers. Affects every published version ' +
-      '(range *); npm offers only a react-scripts 1.x downgrade. Build-time only — reached through ' +
-      'the Jest/istanbul reporting chain, formatting our own test output.',
-  },
 };
 
 function audit() {
