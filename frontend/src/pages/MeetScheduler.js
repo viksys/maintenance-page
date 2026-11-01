@@ -213,39 +213,6 @@ export default function MeetScheduler() {
                 Pick a time that suits you. Times are shown in your own timezone, and you will get a calendar
                 invitation with a video link once the slot is confirmed.
               </p>
-
-              {/*
-                THE DEADLINE, ABOVE THE CALENDAR AND NOT BELOW IT.
-
-                It is a condition of booking, so it has to be read before the
-                choice is made rather than after. The calendar is a third-party
-                widget: it does not know about this date and will keep offering
-                slots past it, so this line is the only place a reader can learn
-                that a later slot is not worth taking.
-
-                --ink on a bordered plate rather than --text-tertiary. The
-                paragraph above is context; this is a rule, and the one piece of
-                copy on the page a reader cannot afford to skim.
-              */}
-              <div
-                className="mb-10"
-                style={{
-                  borderLeft: '2px solid var(--amber)',
-                  background: 'var(--stone-50)',
-                  padding: '14px 18px',
-                  maxWidth: 'var(--measure-sm)',
-                }}
-              >
-                {/* --ink, not --amber-text. Measured on this plate, amber is
-                    rgb(178,71,0) on rgb(216,222,219) = 4.06:1, under the 4.5:1
-                    floor for 12px text — npm run contrast failed on exactly
-                    this. The amber left border carries the accent instead,
-                    where a border has no ratio to clear. */}
-                <div className="meta mb-2" style={{ color: 'var(--ink)' }}>PLEASE NOTE</div>
-                <p className="text-[13.5px]" style={{ color: 'var(--ink)', lineHeight: 1.65, margin: 0 }}>
-                  Interviews end on 6 October. Anything scheduled after that date will not be considered.
-                </p>
-              </div>
             </Reveal>
 
             <Reveal>

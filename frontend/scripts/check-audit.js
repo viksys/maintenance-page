@@ -36,13 +36,21 @@ const { execFileSync } = require('child_process');
   than quietly permitting a future reintroduction.
 */
 const ALLOWED = {
-  'GHSA-vfj7-8cjw-p6xm': {
-    package: 'braces',
+  'GHSA-gcqx-w48m-w2h4': {
+    package: 'deepmerge',
     why:
-      'Stack exhaustion on deeply nested patterns. Affects every published version (range *); ' +
-      'npm offers only a tailwindcss 4.x major as a "fix". Build-time only — braces is reached ' +
-      'through tailwind\'s file globbing, which runs over our own source at build and never sees ' +
-      'untrusted input.',
+      'Prototype poisoning of the merged object. Affects every published version (>=4.2.0) and ' +
+      'there is no patched release to move to. Reached only through @svgr/plugin-svgo and ' +
+      'jest-config, which merge our own config objects at build and test time and never merge ' +
+      'anything a visitor sends.',
+  },
+  'GHSA-g3hv-75wg-m249': {
+    package: 'minimatch',
+    why:
+      'Denial of service via globparts amplification. The fix is 11.0.1, but the tree holds 3.x ' +
+      'and 5.x under eslint, jest, glob and recursive-readdir, and minimatch 11 no longer exports ' +
+      'a callable module, so an override to it breaks those callers outright. Dev and build-time ' +
+      'only — the patterns matched are the ones in our own config, not input from anyone.',
   },
 };
 
