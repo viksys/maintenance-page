@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Reveal from '@/components/Reveal';
 import LogoCarousel from '@/components/LogoCarousel';
+import AnnouncementTicker from '@/components/AnnouncementTicker';
 import { FlowButton } from '@/components/ui/flow-button';
 import { LoopingWords } from '@/components/ui/looping-words';
 import { HoverRevealCards } from '@/components/ui/hover-reveal-cards';
@@ -564,6 +565,25 @@ export default function Home() {
       <Header />
       <main id="main-content" tabIndex={-1}>
         <Hero />
+
+        {/* ================= ANNOUNCEMENT — DARK =================
+            A slim scrolling strip, and it is placed here rather than above the
+            header on purpose.
+
+            The bar is position: fixed and every hero on the site is laid out
+            under it through --vk-header-h; a strip inserted above it would have
+            had to shift that token and re-measure thirty heroes to buy itself
+            forty pixels. Directly beneath the hero it is the first thing after
+            the statement, which is where a reader's eye already is.
+
+            INK, LIKE WHAT IS ON EITHER SIDE OF IT. The hero's floor gradient
+            ramps to solid ink and the mission band below is ink, and that join
+            is described in the note on that section. A band of any other colour
+            here would cut the dark run in half; this one extends it, so the
+            seam the gradient was drawn for still lands on ink.
+
+            It removes itself after the event — see data/announcement.js. */}
+        <AnnouncementTicker />
 
         {/* ================= MISSION — DARK =================
             The first thing after the plate, and the first thing on the page
